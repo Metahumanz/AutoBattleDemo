@@ -11,6 +11,9 @@ ABaseSoldier::ABaseSoldier()
 	Damage = 10.0f;
 	AttackRange = 150.0f; // 近战默认距离
 	AttackInterval = 1.0f;
+
+	// 初始化血量
+	MaxHealth = 100.0f; 
 }
 
 void ABaseSoldier::BeginPlay()
@@ -34,4 +37,29 @@ void ABaseSoldier::Attack(AActor* Target)
 
 		// 这里以后可以写：Target->TakeDamage(...)
 	}
+}
+
+// 点击扣血逻辑（跟 BaseBuilding 很像）
+void ABaseSoldier::NotifyActorOnClicked(FKey ButtonPressed)
+{
+    Super::NotifyActorOnClicked(ButtonPressed);
+
+    // 扣血
+    MaxHealth -= 20.0f; // 每次扣20
+
+    // 打印日志
+    if (GEngine)
+    {
+        FString Msg = FString::Printf(TEXT("Soldier Hit! Health: %f"), MaxHealth);
+        GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Cyan, Msg);
+    }
+
+    // 死亡逻辑
+    if (MaxHealth <= 0.0f)
+    {
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Soldier Died!"));
+
+        // 销毁自己
+        Destroy();
+    }
 }

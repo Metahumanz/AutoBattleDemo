@@ -35,9 +35,18 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
 		float AttackInterval;
 
+	// 生命值
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		float MaxHealth;
+
+	// 覆盖点击事件
+	virtual void NotifyActorOnClicked(FKey ButtonPressed = EKeys::LeftMouseButton) override;
+
 	// --- 核心多态函数 ---
 
 	// 虚函数：发起攻击
 	// 加上 'virtual' 关键字，意味着子类(Archer)可以覆盖它
 	virtual void Attack(AActor* Target);
+
+
 };
