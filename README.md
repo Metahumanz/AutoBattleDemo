@@ -73,6 +73,5 @@ AutoBattleDemo/
 ## License
 
 For educational purposes only.  
-Uses **Starter Content** under Unreal Engine’s [EULA](https://www.unrealengine.com/en-US/eula).
 
 © 2025 Team 657220
