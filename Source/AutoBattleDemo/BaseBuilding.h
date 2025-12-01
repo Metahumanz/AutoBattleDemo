@@ -19,7 +19,7 @@ public:
 	virtual void NotifyActorOnClicked(FKey ButtonPressed = EKeys::LeftMouseButton) override;
 
 protected:
-	// 游戏开始时调用（你之前报错是因为缺了这一行声明）
+	// 游戏开始时调用
 	virtual void BeginPlay() override;
 
 public:
