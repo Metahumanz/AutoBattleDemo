@@ -1,34 +1,41 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "BaseGameEntity.h"
+#include "RTSGameMode.h"
+#include "Kismet/GameplayStatics.h"
 
-// Sets default values
 ABaseGameEntity::ABaseGameEntity()
 {
- 	// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = true;
 
+    // 默认值
+    MaxHealth = 100.0f;
+    CurrentHealth = MaxHealth;
+    TeamID = ETeam::Enemy; // 默认为敌人，子类可修改
 }
 
-// Called when the game starts or when spawned
-void ABaseGameEntity::BeginPlay()
+float ABaseGameEntity::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	Super::BeginPlay();
-	
+    float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+    CurrentHealth -= ActualDamage;
+    // UE_LOG(LogTemp, Warning, TEXT("%s took %f damage. Current HP: %f"), *GetName(), ActualDamage, CurrentHealth);
+
+    if (CurrentHealth <= 0.0f)
+    {
+        Die();
+    }
+
+    return ActualDamage;
 }
 
-// Called every frame
-void ABaseGameEntity::Tick(float DeltaTime)
+void ABaseGameEntity::Die()
 {
-	Super::Tick(DeltaTime);
+    // 通知 GameMode (我是受害者，谁杀了我这里暂时传空)
+    ARTSGameMode* GM = Cast<ARTSGameMode>(UGameplayStatics::GetGameMode(this));
+    if (GM)
+    {
+        GM->OnActorKilled(this, nullptr);
+    }
 
+    // 销毁自己
+    Destroy();
 }
-
-// Called to bind functionality to input
-void ABaseGameEntity::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-}
-
