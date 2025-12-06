@@ -1,0 +1,18 @@
+#pragma once
+#include "CoreMinimal.h"
+#include "Engine/GameInstance.h"
+#include "RTSGameInstance.generated.h"
+
+UCLASS()
+class AUTOBATTLEDEMO_API URTSGameInstance : public UGameInstance
+{
+    GENERATED_BODY()
+public:
+    // 玩家持有的金币 (跨关卡保存)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Data")
+        int32 PlayerGold;
+
+    // 当前关卡索引 (0, 1, 2)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Player Data")
+        int32 CurrentLevelIndex;
+};

@@ -1,59 +1,27 @@
 #pragma once
-//test00
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "RTSCoreTypes.h"
 #include "GridManager.generated.h"
 
-// 格子状态枚举
-UENUM(BlueprintType)
-enum class EGridState : uint8
-{
-    Empty,       // 空
-    HasBuilding, // 有建筑
-    HasSoldier,  // 有士兵（允许多个）
-    Blocked      // 不可通行（岩石/树林等）
-};
-
-// 格子数据结构
+// 定义格子的结构体
 USTRUCT(BlueprintType)
-struct FGridCell
+struct FGridNode
 {
     GENERATED_BODY()
 
         // 格子坐标
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
-        FIntPoint Coordinates;
+        int32 X;
+    int32 Y;
 
-    // 当前状态
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
-        EGridState State = EGridState::Empty;
+    // 世界坐标中心点
+    FVector WorldLocation;
 
-    // 包含的Actor（建筑/阻碍物）
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
-        AActor* OccupyingActor = nullptr;
+    // 是否被阻挡（有墙或防御塔）
+    bool bIsBlocked;
 
-    // 包含的士兵列表（允许多个）
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
-        TArray<AActor*> SoldiersInCell;
-};
-
-// 封装单行网格单元格，解决嵌套容器问题
-USTRUCT(BlueprintType)
-struct FGridRow
-{
-    GENERATED_BODY()
-
-        // 单行中的单元格数组（原二维数组的内层）
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid Data")
-        TArray<FGridCell> Cells;
-};
-
-// 场景类型枚举
-UENUM(BlueprintType)
-enum class EGridSceneType : uint8
-{
-    PlayerBase,   // 我方基地
-    EnemyBase     // 敌人基地
+    // 寻路消耗 (可以预留，比如沼泽地走得慢)
+    float Cost;
 };
 
 UCLASS()
@@ -64,97 +32,47 @@ class AUTOBATTLEDEMO_API AGridManager : public AActor
 public:
     AGridManager();
 
-protected:
-    virtual void BeginPlay() override;
+    // --- 供成员 C 调用：初始化地图 ---
+    // 生成可视化格子（Debug线或模型），初始化 GridArray
+    UFUNCTION(BlueprintCallable, Category = "Grid")
+        void GenerateGrid(int32 Width, int32 Height, float CellSize);
+
+    // --- 供成员 C 调用：交互转换 ---
+    // 鼠标点的世界坐标 -> 格子坐标 (用于造兵时吸附网格)
+    UFUNCTION(BlueprintCallable, Category = "Grid")
+        bool WorldToGrid(FVector WorldPos, int32& OutX, int32& OutY);
+
+    // 格子坐标 -> 世界坐标 (用于把兵摆在格子正中间)
+    UFUNCTION(BlueprintCallable, Category = "Grid")
+        FVector GridToWorld(int32 X, int32 Y);
+
+    // --- 供成员 C 调用：阻挡设置 ---
+    // 检查是否可以放置 (不能重叠，也不能放在障碍物上)
+    UFUNCTION(BlueprintCallable, Category = "Grid")
+        bool IsTileWalkable(int32 X, int32 Y);
+
+    // 放置建筑后调用，锁定该格子
+    UFUNCTION(BlueprintCallable, Category = "Grid")
+        void SetTileBlocked(int32 X, int32 Y, bool bBlocked);
+
+    // --- 供成员 B 调用：核心寻路 ---
+    // 输入：起点世界坐标，终点世界坐标
+    // 输出：路径点列表 (World Locations)
+    // 重点：如果找不到路径，返回空数组
+    UFUNCTION(BlueprintCallable, Category = "Pathfinding")
+        TArray<FVector> FindPath(FVector StartPos, FVector EndPos);
 
 public:
-    virtual void Tick(float DeltaTime) override;
+    // 二维数组扁平化存储，或者使用 TArray<FGridNode>
+    // 建议使用 TMap<FIntPoint, FGridNode> 或者一维数组 Index = Y * Width + X
+    TArray<FGridNode> GridNodes;
 
-    // 初始化网格
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        void InitGrid(int32 InWidth, int32 InHeight, float InCellSize, EGridSceneType InSceneType);
+    UPROPERTY(EditAnywhere, Category = "Grid Config")
+        int32 GridWidthCount;
 
-    // 获取指定世界坐标对应的格子坐标
-    UFUNCTION(BlueprintPure, Category = "Grid System")
-        FIntPoint GetGridCoordinatesFromWorldLocation(const FVector& WorldLocation) const;
+    UPROPERTY(EditAnywhere, Category = "Grid Config")
+        int32 GridHeightCount;
 
-    // 获取指定格子坐标对应的世界位置
-    UFUNCTION(BlueprintPure, Category = "Grid System")
-        FVector GetWorldLocationFromGridCoordinates(const FIntPoint& GridCoordinates) const;
-
-    // 获取格子状态
-    UFUNCTION(BlueprintPure, Category = "Grid System")
-        EGridState GetGridCellState(const FIntPoint& GridCoordinates) const;
-
-    // 更新格子状态（放置建筑）
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        bool PlaceBuilding(const FIntPoint& GridCoordinates, AActor* BuildingActor);
-
-    // 移除建筑
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        bool RemoveBuilding(const FIntPoint& GridCoordinates);
-
-    // 添加士兵到格子
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        void AddSoldierToCell(const FIntPoint& GridCoordinates, AActor* SoldierActor);
-
-    // 从格子移除士兵
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        void RemoveSoldierFromCell(const FIntPoint& GridCoordinates, AActor* SoldierActor);
-
-    // 放置阻碍物（岩石/树林）
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        bool PlaceObstacle(const FIntPoint& GridCoordinates, AActor* ObstacleActor);
-
-    // 移除阻碍物（消耗资源）
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        bool RemoveObstacle(const FIntPoint& GridCoordinates, int32& ResourceCost);
-
-    // 检查格子是否可建造
-    UFUNCTION(BlueprintPure, Category = "Grid System")
-        bool IsCellBuildable(const FIntPoint& GridCoordinates) const;
-
-    // 检查格子是否可通行
-    UFUNCTION(BlueprintPure, Category = "Grid System")
-        bool IsCellPassable(const FIntPoint& GridCoordinates) const;
-
-    // 切换场景类型
-    UFUNCTION(BlueprintCallable, Category = "Grid System")
-        void SetSceneType(EGridSceneType NewSceneType);
-
-private:
-    // 检查坐标是否有效
-    bool IsValidGridCoordinates(const FIntPoint& GridCoordinates) const;
-
-    // 更新格子状态
-    void UpdateGridCellState(const FIntPoint& GridCoordinates);
-
-protected:
-    // 网格宽度
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings")
-        int32 GridWidth = 20;
-
-    // 网格高度
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings")
-        int32 GridHeight = 20;
-
-    // 格子大小（厘米）
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings")
-        float CellSize = 100.0f;
-
-    // 当前场景类型
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid Settings")
-        EGridSceneType CurrentSceneType = EGridSceneType::PlayerBase;
-
-    // 移除阻碍物的资源成本
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Grid Settings")
-        int32 ObstacleRemovalCost = 50;
-
-    // 网格数据（修正：使用FGridRow解决嵌套容器问题）
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid Data")
-        TArray<FGridRow> GridRows;
-
-    // 调试用网格显示
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Debug")
-        bool bDrawDebugGrid = true;
+    UPROPERTY(EditAnywhere, Category = "Grid Config")
+        float TileSize;
 };
