@@ -18,6 +18,7 @@ class AUTOBATTLEDEMO_API ABaseUnit : public ABaseGameEntity
     GENERATED_BODY()
 public:
     ABaseUnit();
+    virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
 
     // --- ¹© GameMode µ÷ÓÃ ---

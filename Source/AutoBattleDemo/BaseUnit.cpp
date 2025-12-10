@@ -26,6 +26,22 @@ ABaseUnit::ABaseUnit()
     bIsTargetable = false; // 士兵不是建筑，通常不被防御塔主动攻击（可选）
 }
 
+void ABaseUnit::BeginPlay()
+{
+    Super::BeginPlay();
+    // 获取 GridManager
+    for (TActorIterator<AGridManager> It(GetWorld()); It; ++It)
+    {
+        GridManagerRef = *It;
+        break;
+    }
+
+    if (!GridManagerRef)
+    {
+        UE_LOG(LogTemp, Error, TEXT("BaseUnit 找不到 GridManager！"));
+    }
+}
+
 void ABaseUnit::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
