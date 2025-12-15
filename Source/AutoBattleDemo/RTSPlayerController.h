@@ -47,4 +47,15 @@ protected:
     // 2. 内部持有：创建出来的 UI 实例
     UPROPERTY()
         URTSMainHUD* MainHUDInstance;
+
+    // 幽灵 Actor 的实例
+    UPROPERTY()
+        AActor* PreviewGhostActor;
+
+    // 可以在蓝图里配置：预览用的模型 Actor 类 (比如一个只有半透明圆柱体的 Actor)
+    UPROPERTY(EditDefaultsOnly, Category = "UI")
+        TSubclassOf<AActor> PlacementPreviewClass;
+
+    // 辅助函数：更新幽灵位置
+    void UpdatePlacementGhost();
 };

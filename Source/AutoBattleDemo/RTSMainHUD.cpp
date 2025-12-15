@@ -25,17 +25,26 @@ void URTSMainHUD::NativeConstruct()
     }
 }
 
+// RTSMainHUD.cpp
+
 void URTSMainHUD::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
     Super::NativeTick(MyGeometry, InDeltaTime);
 
-    // 实时更新金币显示
-    // 这种写法虽然不是最高效(每帧调)，但是最稳妥，防止金币变了UI没变
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
-    if (GI && Text_GoldInfo)
+    if (GI)
     {
-        FString GoldStr = FString::Printf(TEXT("Gold: %d"), GI->PlayerGold);
-        Text_GoldInfo->SetText(FText::FromString(GoldStr));
+        // 更新金币
+        if (Text_GoldInfo)
+        {
+            Text_GoldInfo->SetText(FText::FromString(FString::Printf(TEXT("Gold: %d"), GI->PlayerGold)));
+        }
+
+        // 更新圣水 (Elixir)
+        if (Text_ElixirInfo)
+        {
+            Text_ElixirInfo->SetText(FText::FromString(FString::Printf(TEXT("Elixir: %d"), GI->PlayerElixir)));
+        }
     }
 }
 
@@ -46,6 +55,14 @@ void URTSMainHUD::OnClickBuySoldier()
     if (PC)
     {
         PC->OnSelectUnitToPlace(EUnitType::Soldier);
+
+        // 把焦点还给游戏，否则 Tick 里的鼠标检测可能会卡住
+        FInputModeGameAndUI InputMode;
+        InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+        InputMode.SetHideCursorDuringCapture(false);
+        // 关键：不要让 Widget 继续持有焦点
+        PC->SetInputMode(InputMode);
+        PC->bShowMouseCursor = true;
     }
 }
 

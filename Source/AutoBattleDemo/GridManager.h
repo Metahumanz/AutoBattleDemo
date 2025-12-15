@@ -92,6 +92,11 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Grid")
         bool WorldToGrid(const FVector& WorldLoc, int32& OutGridX, int32& OutGridY) const;
 
+    // 每帧调用的绘制函数 ---
+    // HoverX, HoverY: 当前鼠标悬停的格子坐标 (如果没有悬停传 -1)
+    UFUNCTION(BlueprintCallable, Category = "Grid")
+        void DrawGridVisuals(int32 HoverX, int32 HoverY);
+
 private:
     /**
      * A*算法节点结构体，用于路径计算
@@ -157,4 +162,6 @@ private:
     // 调试绘制开关（开发模式使用）
     UPROPERTY(EditAnywhere, Category = "Debug")
         bool bDrawDebug;
+
+
 };

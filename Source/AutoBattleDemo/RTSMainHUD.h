@@ -33,9 +33,6 @@ protected:
     UPROPERTY(meta = (BindWidget))
         UButton* Btn_StartBattle;
 
-    UPROPERTY(meta = (BindWidget))
-        UTextBlock* Text_GoldInfo;
-
     // --- 按钮点击处理函数 ---
     UFUNCTION()
         void OnClickBuySoldier();
@@ -45,4 +42,12 @@ protected:
 
     UFUNCTION()
         void OnClickStartBattle();
+
+    // 显示金币
+    UPROPERTY(meta = (BindWidget))
+        UTextBlock* Text_GoldInfo;
+
+    // 显示圣水
+    UPROPERTY(meta = (BindWidget))
+        UTextBlock* Text_ElixirInfo;
 };

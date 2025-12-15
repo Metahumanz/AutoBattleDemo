@@ -26,54 +26,10 @@ void AGridManager::BeginPlay()
 {
     Super::BeginPlay();
 
-    // 游戏一开始，生成一个 20x20 的网格，每个格子 100 单位
-    // 这样你一运行游戏就能看到白色的格子线
     GenerateGrid(20, 20, 100.0f);
 
 
-    // ================= 自动化测试脚本 =================
 
-    // 1. 设置障碍物 (造一堵墙)
-    // 假设在 X=5 的位置，从 Y=0 到 Y=10 全堵死
-    for (int32 i = 0; i <= 10; i++)
-    {
-        SetTileBlocked(5, i, true);
-    }
-    UE_LOG(LogTemp, Warning, TEXT("[Test] Wall built at X=5"));
-
-    // 2. 定义起点和终点
-    // 起点 (0, 0)，终点 (10, 5)
-    // 正常走直线会被墙挡住，它应该绕路
-    FVector StartPos = GridToWorld(0, 0);
-    FVector EndPos = GridToWorld(10, 5);
-
-    // 3. 执行寻路
-    TArray<FVector> Path = FindPath(StartPos, EndPos);
-
-    // 4. 验证结果
-    if (Path.Num() > 0)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("[Test] Path Found! Steps: %d"), Path.Num());
-
-        // 画出路径线 (绿色)
-        for (int32 i = 0; i < Path.Num() - 1; i++)
-        {
-            DrawDebugLine(
-                GetWorld(),
-                Path[i] + FVector(0, 0, 10),      // 稍微抬高一点
-                Path[i + 1] + FVector(0, 0, 10),
-                FColor::Green,
-                true, -1.0f, 0, 5.0f            // 绿色粗线，永久显示
-            );
-
-            // 画出关键点 (黄色球)
-            DrawDebugSphere(GetWorld(), Path[i], 20.0f, 12, FColor::Yellow, true, -1.0f);
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("[Test] Path NOT Found! Algorithm failed?"));
-    }
 
 }
 
@@ -109,21 +65,65 @@ void AGridManager::GenerateGrid(int32 Width, int32 Height, float CellSize)
             );
             GridNodes.Add(NewNode);
 
-            // 调试绘制格子边框（仅在非编辑器世界且开启调试时）
-            if (bDrawDebug && GetWorld()->GetName() != TEXT("EditorWorld"))
-            {
-                DrawDebugBox(
-                    GetWorld(),
-                    NewNode.WorldLocation,
-                    FVector(TileSize / 2 * 0.9f, TileSize / 2 * 0.9f, 1.0f),  // 稍微缩小一点避免边框重叠
-                    FColor::White,
-                    true,                           // 持续显示
-                    -1.0f,                          // 永久存在
-                    0,
-                    4.0f                            // 线宽
-                );
-            }
+            //// 调试绘制格子边框（仅在非编辑器世界且开启调试时）
+            //if (bDrawDebug && GetWorld()->GetName() != TEXT("EditorWorld"))
+            //{
+            //    DrawDebugBox(
+            //        GetWorld(),
+            //        NewNode.WorldLocation,
+            //        FVector(TileSize / 2 * 0.9f, TileSize / 2 * 0.9f, 1.0f),  // 稍微缩小一点避免边框重叠
+            //        FColor::White,
+            //        true,                           // 持续显示
+            //        -1.0f,                          // 永久存在
+            //        0,
+            //        4.0f                            // 线宽
+            //    );
+            //}
         }
+    }
+
+
+}
+
+void AGridManager::DrawGridVisuals(int32 HoverX, int32 HoverY)
+{
+    float LifeTime = GetWorld()->GetDeltaSeconds() * 2.0f;
+
+    for (const FGridNode& Node : GridNodes)
+    {
+        // 默认状态 (模拟半透明)
+        // 使用灰色代替白色
+        FColor LineColor = FColor(110, 110, 110);
+
+        // 默认线宽变细，让它退居背景
+        float LineThickness = 5.0f;
+
+        // 1. 选中状态 (高亮 + 加粗)
+        if (Node.X == HoverX && Node.Y == HoverY)
+        {
+            LineColor = FColor::Cyan; // 青色比蓝色更显眼
+            LineThickness = 10.0f;     // 选中时很粗
+        }
+        // 2. 阻挡状态 (红色 + 中粗)
+        else if (Node.bIsBlocked)
+        {
+            LineColor = FColor::Red;
+            LineThickness = 7.5f;
+        }
+
+        // 绘制
+        DrawDebugBox(
+            GetWorld(),
+            Node.WorldLocation,
+            // 普通格子稍微小一点(0.9f)，给线之间留缝隙，看着更舒服
+            // 选中格子可以稍微大一点吗？这里统一点比较好
+            FVector(TileSize / 2 * 0.90f, TileSize / 2 * 0.90f, 5.0f),
+            LineColor,
+            false,
+            LifeTime,
+            0,
+            LineThickness
+        );
     }
 }
 

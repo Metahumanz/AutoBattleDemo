@@ -2,11 +2,26 @@
 #include "GridManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h" // 用于遍历 Actor
+#include "Components/CapsuleComponent.h" 
 
 ABaseUnit::ABaseUnit()
 {
     PrimaryActorTick.bCanEverTick = true;
 
+    // 1. 创建胶囊体作为根组件
+    CapsuleComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
+    RootComponent = CapsuleComp;
+
+    // 给个常用的默认值即可，具体的数值去 BP_Soldier 蓝图里设
+    CapsuleComp->InitCapsuleSize(40.0f, 90.0f);
+    CapsuleComp->SetCollisionProfileName(TEXT("Pawn"));
+    
+
+    // 2. 创建模型组件，挂在胶囊体下面
+    MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
+    MeshComp->SetupAttachment(RootComponent);
+
+ 
     // 默认数值
     MaxHealth = 100.0f;
     AttackRange = 150.0f; // 近战距离
