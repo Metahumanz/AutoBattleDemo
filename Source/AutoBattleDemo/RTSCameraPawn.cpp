@@ -23,14 +23,14 @@ ARTSCameraPawn::ARTSCameraPawn()
     CameraComp->SetupAttachment(SpringArmComp);
 
     // 4. 初始化参数
-    MoveSpeed = 1000.0f;
-    ZoomSpeed = 100.0f;
-    MinZoom = 500.0f;
-    MaxZoom = 3000.0f;
+    MoveSpeed = 1500.0f;
+    ZoomSpeed = 400.0f;
+    MinZoom = 300.0f;
+    MaxZoom = 2500.0f;
     TargetZoom = 1500.0f;
 
     // 初始化拖拽灵敏度 (建议值)
-    DragSpeed = 5.0f;
+    DragSpeed = 20.0f;
     bIsRMBDown = false;
 }
 
