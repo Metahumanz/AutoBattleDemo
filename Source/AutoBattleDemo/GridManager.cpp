@@ -1,27 +1,23 @@
-// GridManager.cpp£¨ºËĞÄÊµÏÖ¸Ä½ø£©
 #include "GridManager.h"
 #include "Engine/World.h"
 #include "DrawDebugHelpers.h"
-#include "Containers/Queue.h"
-#include "Misc/AssertionMacros.h"
+#include "Kismet/GameplayStatics.h"
 
-
-/**
- * ¹¹Ôìº¯Êı£º³õÊ¼»¯Ä¬ÈÏÖµ
- */
 AGridManager::AGridManager()
 {
-    PrimaryActorTick.bCanEverTick = false;  // ²»ĞèÒªÃ¿Ö¡¸üĞÂ
-    bDrawDebug = true;                      // Ä¬ÈÏ¿ªÆôµ÷ÊÔ»æÖÆ£¨¿ª·¢Ä£Ê½£©
+    PrimaryActorTick.bCanEverTick = false;  // ä¸éœ€è¦æ¯å¸§æ›´æ–°
+    bDrawDebug = true;                      // é»˜è®¤å¼€å¯è°ƒè¯•ç»˜åˆ¶ï¼ˆå¼€å‘æ¨¡å¼ï¼‰
 
-    // ´´½¨Ò»¸ö¸ù×é¼ş£¬·ñÔòËüÔÚ³¡¾°ÀïÃ»ÓĞ×ø±ê£¨Location È«ÊÇ 0£©
+    // ç½‘æ ¼å°ºå¯¸åˆå§‹åŒ–ï¼ˆæ¥è‡ª main_åœ°å›¾æ ¼å­ åˆ†æ”¯ï¼Œä¸šåŠ¡æ ¸å¿ƒå€¼ï¼‰
+    GridWidth = 20;
+    GridHeight = 20;
+    CellSize = 100.0f;
+
+    // åˆ›å»ºä¸€ä¸ªæ ¹ç»„ä»¶ï¼Œå¦åˆ™å®ƒåœ¨åœºæ™¯é‡Œæ²¡æœ‰åæ ‡ï¼ˆLocation å…¨æ˜¯ 0ï¼‰
     USceneComponent* SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
     RootComponent = SceneRoot;
 }
 
-/**
- * ÓÎÏ·¿ªÊ¼Ê±µ÷ÓÃ
- */
 void AGridManager::BeginPlay()
 {
     Super::BeginPlay();
@@ -33,90 +29,85 @@ void AGridManager::BeginPlay()
 
 }
 
-/**
- * Éú³ÉÍø¸ñ²¢³õÊ¼»¯ËùÓĞ½Úµã
- * @param Width Íø¸ñ¿í¶È£¨X·½Ïò¸ñ×ÓÊıÁ¿£©
- * @param Height Íø¸ñ¸ß¶È£¨Y·½Ïò¸ñ×ÓÊıÁ¿£©
- * @param CellSize Ã¿¸ö¸ñ×ÓµÄ³ß´ç£¨ÊÀ½çµ¥Î»£©
- */
-void AGridManager::GenerateGrid(int32 Width, int32 Height, float CellSize)
+void AGridManager::InitializeGridFromLevelData(ULevelDataAsset* LevelData)
 {
-    GridWidthCount = Width;
-    GridHeightCount = Height;
-    TileSize = CellSize;
-    GridNodes.Empty();
-    GridNodes.Reserve(Width * Height);  // Ô¤·ÖÅäÄÚ´æ£¬¼õÉÙ¶¯Ì¬À©Èİ¿ªÏú
-
-    // Ë«ÖØÑ­»·³õÊ¼»¯ËùÓĞ¸ñ×Ó
-    for (int32 Y = 0; Y < Height; Y++)
+    if (LevelData)
     {
-        for (int32 X = 0; X < Width; X++)
-        {
-            FGridNode NewNode;
-            NewNode.X = X;
-            NewNode.Y = Y;
-            NewNode.bIsBlocked = false;       // Ä¬ÈÏËùÓĞ¸ñ×Ó¿ÉÍ¨ĞĞ
-            NewNode.Cost = 1.0f;              // Ä¬ÈÏµØĞÎ³É±¾Îª1.0
-            // ¼ÆËã¸ñ×ÓÖĞĞÄµãÊÀ½ç×ø±ê£¨»ùÓÚ¹ÜÀíÆ÷×ÔÉíÎ»ÖÃ£©
-            NewNode.WorldLocation = GetActorLocation() + FVector(
-                X * TileSize + TileSize / 2,  // X·½ÏòÆ«ÒÆ£¨¼ÓÒ»°ë³ß´ç¾ÓÖĞ£©
-                Y * TileSize + TileSize / 2,  // Y·½ÏòÆ«ÒÆ£¨¼ÓÒ»°ë³ß´ç¾ÓÖĞ£©
-                0.0f                         // ZÖáÄ¬ÈÏÎª0£¨ºöÂÔ¸ß¶È£©
-            );
-            GridNodes.Add(NewNode);
-
-            //// µ÷ÊÔ»æÖÆ¸ñ×Ó±ß¿ò£¨½öÔÚ·Ç±à¼­Æ÷ÊÀ½çÇÒ¿ªÆôµ÷ÊÔÊ±£©
-            //if (bDrawDebug && GetWorld()->GetName() != TEXT("EditorWorld"))
-            //{
-            //    DrawDebugBox(
-            //        GetWorld(),
-            //        NewNode.WorldLocation,
-            //        FVector(TileSize / 2 * 0.9f, TileSize / 2 * 0.9f, 1.0f),  // ÉÔÎ¢ËõĞ¡Ò»µã±ÜÃâ±ß¿òÖØµş
-            //        FColor::White,
-            //        true,                           // ³ÖĞøÏÔÊ¾
-            //        -1.0f,                          // ÓÀ¾Ã´æÔÚ
-            //        0,
-            //        4.0f                            // Ïß¿í
-            //    );
-            //}
-        }
+        // ä¿ç•™ä½ çš„åˆ†æ”¯ï¼šåŠ è½½å…³å¡æ•°æ®ï¼ˆä¸šåŠ¡å¿…éœ€ï¼‰
+        LoadLevelData(LevelData);
+    }
+    else
+    {
+        // ä¿ç•™ä½ çš„åˆ†æ”¯ï¼šLevelData åˆ¤ç©ºæŠ¥é”™ï¼ˆå¼‚å¸¸å¤„ç†ï¼‰
+        UE_LOG(LogTemp, Error, TEXT("LevelData is null!"));
     }
 
+    // ä¿ç•™ä¸»åˆ†æ”¯ï¼šå¾ªç¯ç”Ÿæˆç½‘æ ¼èŠ‚ç‚¹ï¼ˆæ ¸å¿ƒé€»è¾‘ï¼‰
+    for (int32 X = 0; X < Width; X++)
+    {
+        FGridNode NewNode;
+        NewNode.X = X;
+        NewNode.Y = Y;
+        NewNode.bIsBlocked = false;       // é»˜è®¤æ‰€æœ‰æ ¼å­å¯é€šè¡Œ
+        NewNode.Cost = 1.0f;              // é»˜è®¤åœ°å½¢æˆæœ¬ä¸º1.0
+        // è®¡ç®—æ ¼å­ä¸­å¿ƒç‚¹ä¸–ç•Œåæ ‡ï¼ˆåŸºäºç®¡ç†å™¨è‡ªèº«ä½ç½®ï¼‰
+        NewNode.WorldLocation = GetActorLocation() + FVector(
+            X * TileSize + TileSize / 2,  // Xæ–¹å‘åç§»ï¼ˆåŠ ä¸€åŠå°ºå¯¸å±…ä¸­ï¼‰
+            Y * TileSize + TileSize / 2,  // Yæ–¹å‘åç§»ï¼ˆåŠ ä¸€åŠå°ºå¯¸å±…ä¸­ï¼‰
+            0.0f                         // Zè½´é»˜è®¤ä¸º0ï¼ˆå¿½ç•¥é«˜åº¦ï¼‰
+        );
+        GridNodes.Add(NewNode);
 
+        //// è°ƒè¯•ç»˜åˆ¶æ ¼å­è¾¹æ¡†ï¼ˆä»…åœ¨éç¼–è¾‘å™¨ä¸–ç•Œä¸”å¼€å¯è°ƒè¯•æ—¶ï¼‰
+        //if (bDrawDebug && GetWorld()->GetName() != TEXT("EditorWorld"))
+        //{
+        //    DrawDebugBox(
+        //        GetWorld(),
+        //        NewNode.WorldLocation,
+        //        FVector(TileSize / 2 * 0.9f, TileSize / 2 * 0.9f, 1.0f),  // ç¨å¾®ç¼©å°ä¸€ç‚¹é¿å…è¾¹æ¡†é‡å 
+        //        FColor::White,
+        //        true,                           // æŒç»­æ˜¾ç¤º
+        //        -1.0f,                          // æ°¸ä¹…å­˜åœ¨
+        //        0,
+        //        4.0f                            // çº¿å®½
+        //    );
+        //}
+    }
 }
 
+// ä¿ç•™ä¸»åˆ†æ”¯ï¼šè“å›¾å¯è°ƒç”¨çš„ç½‘æ ¼å¯è§†åŒ–ç»˜åˆ¶æ–¹æ³•ï¼ˆå›¢é˜Ÿæ ¸å¿ƒåŠŸèƒ½ï¼‰
 void AGridManager::DrawGridVisuals(int32 HoverX, int32 HoverY)
 {
     float LifeTime = GetWorld()->GetDeltaSeconds() * 2.0f;
 
     for (const FGridNode& Node : GridNodes)
     {
-        // Ä¬ÈÏ×´Ì¬ (Ä£Äâ°ëÍ¸Ã÷)
-        // Ê¹ÓÃ»ÒÉ«´úÌæ°×É«
+        // é»˜è®¤çŠ¶æ€ (æ¨¡æ‹ŸåŠé€æ˜)
+        // ä½¿ç”¨ç°è‰²ä»£æ›¿ç™½è‰²
         FColor LineColor = FColor(110, 110, 110);
 
-        // Ä¬ÈÏÏß¿í±äÏ¸£¬ÈÃËüÍË¾Ó±³¾°
+        // é»˜è®¤çº¿å®½å˜ç»†ï¼Œè®©å®ƒé€€å±…èƒŒæ™¯
         float LineThickness = 5.0f;
 
-        // 1. Ñ¡ÖĞ×´Ì¬ (¸ßÁÁ + ¼Ó´Ö)
+        // 1. é€‰ä¸­çŠ¶æ€ (é«˜äº® + åŠ ç²—)
         if (Node.X == HoverX && Node.Y == HoverY)
         {
-            LineColor = FColor::Cyan; // ÇàÉ«±ÈÀ¶É«¸üÏÔÑÛ
-            LineThickness = 10.0f;     // Ñ¡ÖĞÊ±ºÜ´Ö
+            LineColor = FColor::Cyan; // é’è‰²æ¯”è“è‰²æ›´æ˜¾çœ¼
+            LineThickness = 10.0f;     // é€‰ä¸­æ—¶å¾ˆç²—
         }
-        // 2. ×èµ²×´Ì¬ (ºìÉ« + ÖĞ´Ö)
+        // 2. é˜»æŒ¡çŠ¶æ€ (çº¢è‰² + ä¸­ç²—)
         else if (Node.bIsBlocked)
         {
             LineColor = FColor::Red;
             LineThickness = 7.5f;
         }
 
-        // »æÖÆ
+        // ç»˜åˆ¶
         DrawDebugBox(
             GetWorld(),
             Node.WorldLocation,
-            // ÆÕÍ¨¸ñ×ÓÉÔÎ¢Ğ¡Ò»µã(0.9f)£¬¸øÏßÖ®¼äÁô·ìÏ¶£¬¿´×Å¸üÊæ·ş
-            // Ñ¡ÖĞ¸ñ×Ó¿ÉÒÔÉÔÎ¢´óÒ»µãÂğ£¿ÕâÀïÍ³Ò»µã±È½ÏºÃ
+            // æ™®é€šæ ¼å­ç¨å¾®å°ä¸€ç‚¹(0.9f)ï¼Œç»™çº¿ä¹‹é—´ç•™ç¼éš™ï¼Œçœ‹ç€æ›´èˆ’æœ
+            // é€‰ä¸­æ ¼å­å¯ä»¥ç¨å¾®å¤§ä¸€ç‚¹å—ï¼Ÿè¿™é‡Œç»Ÿä¸€ç‚¹æ¯”è¾ƒå¥½
             FVector(TileSize / 2 * 0.90f, TileSize / 2 * 0.90f, 5.0f),
             LineColor,
             false,
@@ -127,295 +118,300 @@ void AGridManager::DrawGridVisuals(int32 HoverX, int32 HoverY)
     }
 }
 
-/**
- * ²éÕÒ´ÓÆğµãµ½ÖÕµãµÄÂ·¾¶£¨A*Ëã·¨ÊµÏÖ£©
- * @param StartWorldLoc ÆğµãÊÀ½ç×ø±ê
- * @param EndWorldLoc ÖÕµãÊÀ½ç×ø±ê
- * @return Â·¾¶µãÁĞ±í£¨ÊÀ½ç×ø±ê£©
- */
-TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVector& EndWorldLoc)
+void AGridManager::SetTileBlocked(int32 X, int32 Y, bool bBlocked, AActor* OccupyingActor)
 {
-    TArray<FVector> Path;  // ×îÖÕÂ·¾¶£¨ÊÀ½ç×ø±ê£©
-    int32 StartX, StartY, EndX, EndY;
+    if (!IsValidCoordinate(X, Y)) return;
 
-    // 1. ½«ÆğµãºÍÖÕµãÊÀ½ç×ø±ê×ª»»ÎªÍø¸ñ×ø±ê²¢Ğ£Ñé
-    if (!WorldToGrid(StartWorldLoc, StartX, StartY) || !WorldToGrid(EndWorldLoc, EndX, EndY))
+    int32 Index = Y * GridWidth + X;
+    if (Index >= 0 && Index < GridNodes.Num())
     {
-        UE_LOG(LogTemp, Warning, TEXT("Start or end position is out of grid bounds"));
-        return Path;  // ×ø±ê³¬³öÍø¸ñ·¶Î§£¬·µ»Ø¿ÕÂ·¾¶
-    }
-    if (!IsTileValid(StartX, StartY) || !IsTileValid(EndX, EndY))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Start or end tile is blocked"));
-        return Path;  // Æğµã»òÖÕµã±»×èµ²£¬·µ»Ø¿ÕÂ·¾¶
-    }
+        GridNodes[Index].bIsBlocked = bBlocked;
+        GridNodes[Index].OccupyingActor = OccupyingActor;
 
-    // 2. A*Ëã·¨ºËĞÄÊµÏÖ
-    // ¿ª·Å¼¯£º´ı¼ì²éµÄ½Úµã£¨ÓÃMap´æ´¢±ãÓÚ²éÕÒ£©
-    TMap<FIntPoint, TSharedPtr<FAStarNode>> OpenSet;
-    // ¹Ø±Õ¼¯£ºÒÑ¼ì²éµÄ½Úµã
-    TMap<FIntPoint, TSharedPtr<FAStarNode>> ClosedSet;
-    // ³õÊ¼»¯Æğµã½Úµã
-    auto StartNode = MakeShareable(new FAStarNode(StartX, StartY));
-    OpenSet.Add(FIntPoint(StartX, StartY), StartNode);
+        // é€šçŸ¥æ‰€æœ‰å•ä½è¯¥æ ¼å­çŠ¶æ€å·²æ›´æ–°ï¼Œéœ€è¦é‡æ–°å¯»è·¯
+        OnGridUpdated.Broadcast(X, Y);
 
-    // Ñ­»·´¦Àí¿ª·Å¼¯ÖĞµÄ½Úµã
-    while (OpenSet.Num() > 0)
-    {
-        // ÕÒµ½¿ª·Å¼¯ÖĞFÖµ×îĞ¡µÄ½Úµã£¨×Ü³É±¾×îµÍ£©
-        TSharedPtr<FAStarNode> CurrentNode = nullptr;
-        FIntPoint CurrentKey;
-        for (const auto& Pair : OpenSet)
-        {
-            if (!CurrentNode || Pair.Value->F() < CurrentNode->F())
-            {
-                CurrentNode = Pair.Value;
-                CurrentKey = Pair.Key;
-            }
-        }
-
-        // µ½´ïÖÕµã£¬»ØËİÂ·¾¶
-        if (CurrentKey.X == EndX && CurrentKey.Y == EndY)
-        {
-            TArray<FIntPoint> RawPath;  // Ô­Ê¼Â·¾¶£¨Íø¸ñ×ø±ê£©
-            // ´ÓÖÕµã»ØËİµ½Æğµã
-            while (CurrentNode.IsValid())
-            {
-                RawPath.Add(FIntPoint(CurrentNode->X, CurrentNode->Y));
-                CurrentNode = CurrentNode->Parent.Pin();  // ÑØ¸¸½Úµã»ØËİ
-            }
-            // Ìæ»» Algo::Reverse(RawPath); ÎªÊÖ¶¯·´×ª
-            int32 PathLength = RawPath.Num();
-            for (int32 i = 0; i < PathLength / 2; ++i)
-            {
-                // ½»»»µÚi¸öºÍµÚ(PathLength-1-i)¸öÔªËØ
-                FIntPoint Temp = RawPath[i];
-                RawPath[i] = RawPath[PathLength - 1 - i];
-                RawPath[PathLength - 1 - i] = Temp;
-            }
-            OptimizePath(RawPath);  // ÓÅ»¯Â·¾¶£¨ÒÆ³ıÈßÓàµã£©
-
-            // ½«Íø¸ñ×ø±ê×ª»»ÎªÊÀ½ç×ø±ê
-            for (const auto& GridPos : RawPath)
-            {
-                Path.Add(GridToWorld(GridPos.X, GridPos.Y));
-            }
-            return Path;
-        }
-
-        // ½«µ±Ç°½Úµã´Ó¿ª·Å¼¯ÒÆµ½¹Ø±Õ¼¯
-        OpenSet.Remove(CurrentKey);
-        ClosedSet.Add(CurrentKey, CurrentNode);
-
-        // ´¦Àíµ±Ç°½ÚµãµÄËùÓĞÁÚ¾Ó
-        for (const auto& Neighbor : GetNeighborNodes(CurrentNode->X, CurrentNode->Y))
-        {
-            FIntPoint NeighborKey = Neighbor;
-            // Ìø¹ıÒÑÔÚ¹Ø±Õ¼¯»ò²»¿ÉÍ¨ĞĞµÄ½Úµã
-            if (ClosedSet.Contains(NeighborKey) || !IsTileValid(Neighbor.X, Neighbor.Y))
-            {
-                continue;
-            }
-
-            // ¼ÆËã´ÓÆğµãµ½µ±Ç°ÁÚ¾ÓµÄÊµ¼Ê³É±¾
-            float NewG = CurrentNode->G + GetHeuristicCost(
-                CurrentNode->X, CurrentNode->Y,
-                Neighbor.X, Neighbor.Y
-            ) * GridNodes[Neighbor.Y * GridWidthCount + Neighbor.X].Cost;
-
-            TSharedPtr<FAStarNode> NeighborNode;
-            // Èç¹ûÁÚ¾ÓÒÑÔÚ¿ª·Å¼¯
-            if (OpenSet.Contains(NeighborKey))
-            {
-                NeighborNode = OpenSet[NeighborKey];
-                // ĞÂÂ·¾¶³É±¾¸ü¸ß£¬ÎŞĞè¸üĞÂ
-                if (NewG >= NeighborNode->G) continue;
-            }
-            // ÁÚ¾Ó²»ÔÚ¿ª·Å¼¯£¬´´½¨ĞÂ½Úµã
-            else
-            {
-                NeighborNode = MakeShareable(new FAStarNode(Neighbor.X, Neighbor.Y));
-                OpenSet.Add(NeighborKey, NeighborNode);
-            }
-
-            // ¸üĞÂÁÚ¾Ó½ÚµãĞÅÏ¢
-            NeighborNode->G = NewG;  // ¸üĞÂÊµ¼Ê³É±¾
-            NeighborNode->H = GetHeuristicCost(Neighbor.X, Neighbor.Y, EndX, EndY);  // ¸üĞÂÔ¤¹À³É±¾
-            NeighborNode->Parent = CurrentNode;  // ÉèÖÃ¸¸½Úµã
-        }
-    }
-
-    // ¿ª·Å¼¯Îª¿ÕÇÒÎ´ÕÒµ½ÖÕµã£¬Ñ°Â·Ê§°Ü
-    UE_LOG(LogTemp, Warning, TEXT("No path found between start and end"));
-    return Path;
-}
-
-/**
- * ÉèÖÃÖ¸¶¨¸ñ×ÓµÄ×èµ²×´Ì¬
- * @param GridX ¸ñ×ÓX×ø±ê
- * @param GridY ¸ñ×ÓY×ø±ê
- * @param bBlocked ÊÇ·ñ×èµ²
- */
-void AGridManager::SetTileBlocked(int32 GridX, int32 GridY, bool bBlocked)
-{
-    // ¼ì²é¸ñ×ÓÊÇ·ñÓĞĞ§
-    if (!IsTileValid(GridX, GridY)) return;
-
-    // ¸üĞÂ×èµ²×´Ì¬
-    int32 Index = GridY * GridWidthCount + GridX;
-    GridNodes[Index].bIsBlocked = bBlocked;
-
-    // µ÷ÊÔÏÔÊ¾£º×èµ²µÄ¸ñ×ÓÏÔÊ¾ºìÉ«±ß¿ò
-    if (bDrawDebug)
-    {
-        DrawDebugBox(
-            GetWorld(),
-            GridNodes[Index].WorldLocation,
-            FVector(TileSize / 2 * 0.9f, TileSize / 2 * 0.9f, 2.0f),
-            bBlocked ? FColor::Red : FColor::White,  // ×èµ²ÎªºìÉ«£¬·ñÔò°×É«
-            true,
-            30.0f,  // ³ÖĞø30Ãë£¨±ãÓÚ¹Û²ì£©
-            0,
-            3.0f    // Ïß¿í¼Ó´Ö
-        );
+        // è°ƒè¯•è¾“å‡º
+        UE_LOG(LogTemp, Log, TEXT("Grid (%d,%d) updated - Blocked: %s"), X, Y, bBlocked ? TEXT("True") : TEXT("False"));
     }
 }
 
-/**
- * ½«Íø¸ñ×ø±ê×ª»»ÎªÊÀ½ç×ø±ê
- * @param GridX ¸ñ×ÓX×ø±ê
- * @param GridY ¸ñ×ÓY×ø±ê
- * @return ¶ÔÓ¦¸ñ×ÓÖĞĞÄµãµÄÊÀ½ç×ø±ê
- */
-FVector AGridManager::GridToWorld(int32 GridX, int32 GridY) const
+bool AGridManager::WorldToGrid(FVector WorldPos, int32& OutX, int32& OutY)
 {
-    // ¼ì²é¸ñ×ÓÊÇ·ñÓĞĞ§
-    if (!IsTileValid(GridX, GridY)) return FVector::ZeroVector;
+    OutX = FMath::FloorToInt((WorldPos.X) / CellSize);
+    OutY = FMath::FloorToInt((WorldPos.Y) / CellSize);
 
-    // ·µ»ØÔ¤¼ÆËãµÄÊÀ½ç×ø±ê
-    return GridNodes[GridY * GridWidthCount + GridX].WorldLocation;
+    return IsValidCoordinate(OutX, OutY);
 }
 
-/**
- * ½«ÊÀ½ç×ø±ê×ª»»ÎªÍø¸ñ×ø±ê
- * @param WorldLoc ÊÀ½ç×ø±ê
- * @param OutGridX Êä³ö¸ñ×ÓX×ø±ê
- * @param OutGridY Êä³ö¸ñ×ÓY×ø±ê
- * @return ÊÇ·ñ³É¹¦×ª»»£¨×ø±êÔÚÍø¸ñ·¶Î§ÄÚ£©
- */
-bool AGridManager::WorldToGrid(const FVector& WorldLoc, int32& OutGridX, int32& OutGridY) const
+FVector AGridManager::GridToWorld(int32 X, int32 Y)
 {
-    // ×ª»»ÎªÏà¶ÔÓÚÍø¸ñ¹ÜÀíÆ÷µÄ±¾µØ×ø±ê
-    FVector LocalLoc = WorldLoc - GetActorLocation();
+    if (!IsValidCoordinate(X, Y)) return FVector::ZeroVector;
 
-    // ¼ÆËãÍø¸ñ×ø±ê£¨ÏòÏÂÈ¡Õû£©
-    OutGridX = FMath::FloorToInt(LocalLoc.X / TileSize);
-    OutGridY = FMath::FloorToInt(LocalLoc.Y / TileSize);
-
-    // ¼ì²éÊÇ·ñÔÚÍø¸ñ·¶Î§ÄÚ
-    return IsTileValid(OutGridX, OutGridY);
-}
-
-/**
- * ¼ì²é¸ñ×ÓÊÇ·ñÓĞĞ§£¨ÔÚÍø¸ñ·¶Î§ÄÚÇÒÎ´±»×èµ²£©
- * @param GridX ¸ñ×ÓX×ø±ê
- * @param GridY ¸ñ×ÓY×ø±ê
- * @return ÊÇ·ñÓĞĞ§
- */
-bool AGridManager::IsTileValid(int32 GridX, int32 GridY) const
-{
-    // ¼ì²é×ø±êÊÇ·ñÔÚÍø¸ñ·¶Î§ÄÚ
-    if (GridX < 0 || GridX >= GridWidthCount || GridY < 0 || GridY >= GridHeightCount)
-        return false;
-
-    // ¼ì²é¸ñ×ÓÊÇ·ñÎ´±»×èµ²
-    return !GridNodes[GridY * GridWidthCount + GridX].bIsBlocked;
+    return FVector(
+        X * CellSize + CellSize / 2.0f,
+        Y * CellSize + CellSize / 2.0f,
+        0.0f
+    );
 }
 
 bool AGridManager::IsTileWalkable(int32 X, int32 Y)
 {
-    // 1. ¼ì²é×ø±êÊÇ·ñ³¬³öÍø¸ñ·¶Î§£¨Ô½½çÔò²»¿É×ß£©
-    if (X < 0 || X >= GridWidthCount || Y < 0 || Y >= GridHeightCount)
-    {
-        return false;
-    }
+    if (!IsValidCoordinate(X, Y)) return false;
 
-    // 2. ¼ÆËãÒ»Î¬Êı×éË÷Òı£¨½«¶şÎ¬×ø±ê×ª»»Îª±âÆ½»¯Êı×éË÷Òı£©
-    int32 Index = Y * GridWidthCount + X;
-
-    // 3. ¼ì²éË÷ÒıÓĞĞ§ĞÔ²¢·µ»ØÊÇ·ñ¿É×ß£¨!bIsBlocked ±íÊ¾¿É×ß£©
-    if (GridNodes.IsValidIndex(Index))
-    {
-        return !GridNodes[Index].bIsBlocked;
-    }
-
-    // Ë÷ÒıÎŞĞ§Ê±Ä¬ÈÏ²»¿É×ß
-    return false;
-}
-/**
- * ¼ÆËãÆô·¢Ê½³É±¾£¨Âü¹ş¶Ù¾àÀë£©
- * Âü¹ş¶Ù¾àÀë£º|x1-x2| + |y1-y2|£¬ÊÊÓÃÓÚËÄ·½ÏòÒÆ¶¯
- * @param X1 ÆğµãX
- * @param Y1 ÆğµãY
- * @param X2 ÖÕµãX
- * @param Y2 ÖÕµãY
- * @return Æô·¢Ê½³É±¾Öµ
- */
-float AGridManager::GetHeuristicCost(int32 X1, int32 Y1, int32 X2, int32 Y2) const
-{
-    return FMath::Abs(X1 - X2) + FMath::Abs(Y1 - Y2);
+    int32 Index = Y * GridWidth + X;
+    return !GridNodes[Index].bIsBlocked;
 }
 
-/**
- * »ñÈ¡Ö¸¶¨¸ñ×ÓµÄËùÓĞÓĞĞ§ÁÚ¾Ó½Úµã£¨ËÄ·½Ïò£ºÉÏÏÂ×óÓÒ£©
- * @param X ¸ñ×ÓX×ø±ê
- * @param Y ¸ñ×ÓY×ø±ê
- * @return ÁÚ¾Ó½Úµã×ø±êÁĞ±í
- */
-TArray<FIntPoint> AGridManager::GetNeighborNodes(int32 X, int32 Y) const
+TArray<FVector> AGridManager::FindPath(FVector StartPos, FVector EndPos)
 {
-    TArray<FIntPoint> Neighbors;
-    // ËÄ·½ÏòÆ«ÒÆÁ¿£¨ÓÒ¡¢×ó¡¢ÉÏ¡¢ÏÂ£©
-    const int32 Directions[4][2] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
+    TArray<FVector> Path;
 
-    // ¼ì²éÃ¿¸ö·½ÏòµÄÁÚ¾ÓÊÇ·ñÓĞĞ§
-    for (const auto& Dir : Directions)
+    // è½¬æ¢èµ·ç‚¹å’Œç»ˆç‚¹åˆ°ç½‘æ ¼åæ ‡
+    int32 StartX, StartY, EndX, EndY;
+    if (!WorldToGrid(StartPos, StartX, StartY) || !WorldToGrid(EndPos, EndX, EndY))
     {
-        int32 NewX = X + Dir[0];
-        int32 NewY = Y + Dir[1];
-        if (IsTileValid(NewX, NewY))
+        UE_LOG(LogTemp, Warning, TEXT("Start or end position is out of grid bounds!"));
+        return Path;
+    }
+
+    // æ£€æŸ¥ç»ˆç‚¹æ˜¯å¦å¯èµ°
+    if (!IsTileWalkable(EndX, EndY))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("End position is blocked!"));
+        return Path;
+    }
+
+    // é‡ç½®å¯»è·¯æ•°æ®
+    ResetPathfindingData();
+
+    // æ‰¾åˆ°èµ·ç‚¹å’Œç»ˆç‚¹èŠ‚ç‚¹
+    FGridNode* StartNode = &GridNodes[StartY * GridWidth + StartX];
+    FGridNode* EndNode = &GridNodes[EndY * GridWidth + EndX];
+
+    // ========== ä¿®å¤ï¼šæ›¿æ¢ TPriorityQueue ä¸º TArray + æ’åº ==========
+    // å¼€æ”¾åˆ—è¡¨ï¼ˆå­˜å‚¨å¾…å¤„ç†èŠ‚ç‚¹ï¼‰
+    TArray<FGridNode*> OpenList;
+    // å…³é—­åˆ—è¡¨ï¼ˆå­˜å‚¨å·²å¤„ç†èŠ‚ç‚¹ï¼‰
+    TSet<FGridNode*> ClosedList;
+
+    // åˆå§‹åŒ–èµ·ç‚¹èŠ‚ç‚¹
+    StartNode->GCost = 0;
+    StartNode->HCost = CalculateHCost(StartNode->X, StartNode->Y, EndX, EndY);
+    OpenList.Add(StartNode);
+
+    while (OpenList.Num() > 0)
+    {
+        // 1. ä»å¼€æ”¾åˆ—è¡¨ä¸­æ‰¾åˆ° FCost æœ€å°çš„èŠ‚ç‚¹ï¼ˆæ›¿ä»£ä¼˜å…ˆé˜Ÿåˆ—ï¼‰
+        FGridNode* CurrentNode = nullptr;
+        float MinFCost = TNumericLimits<float>::Max();
+        for (FGridNode* Node : OpenList)
         {
-            Neighbors.Add(FIntPoint(NewX, NewY));
+            if (Node->GetFCost() < MinFCost)
+            {
+                MinFCost = Node->GetFCost();
+                CurrentNode = Node;
+            }
+        }
+
+        if (!CurrentNode) break; // æ— å¯ç”¨èŠ‚ç‚¹ï¼Œé€€å‡º
+
+        // 2. å°†å½“å‰èŠ‚ç‚¹ç§»å‡ºå¼€æ”¾åˆ—è¡¨ï¼ŒåŠ å…¥å…³é—­åˆ—è¡¨
+        OpenList.Remove(CurrentNode);
+        ClosedList.Add(CurrentNode);
+
+        // 3. åˆ°è¾¾ç»ˆç‚¹ï¼Œå›æº¯ç”Ÿæˆè·¯å¾„
+        if (CurrentNode == EndNode)
+        {
+            FGridNode* PathNode = EndNode;
+            while (PathNode != nullptr)
+            {
+                Path.Insert(PathNode->WorldLocation, 0);
+                PathNode = PathNode->ParentNode;
+            }
+            return Path;
+        }
+
+        // 4. å¤„ç†é‚»å±…èŠ‚ç‚¹
+        TArray<FGridNode*> Neighbors = GetNeighborNodes(CurrentNode);
+        for (FGridNode* Neighbor : Neighbors)
+        {
+            // è·³è¿‡ä¸å¯èµ°æˆ–å·²å¤„ç†çš„èŠ‚ç‚¹
+            if (Neighbor->bIsBlocked || ClosedList.Contains(Neighbor))
+                continue;
+
+            // è®¡ç®—ä»å½“å‰èŠ‚ç‚¹åˆ°é‚»å±…çš„æˆæœ¬
+            float TentativeGCost = CurrentNode->GCost +
+                FVector::Dist(CurrentNode->WorldLocation, Neighbor->WorldLocation) * Neighbor->Cost;
+
+            // å¦‚æœæ˜¯æ›´ä¼˜è·¯å¾„ï¼Œæ›´æ–°é‚»å±…èŠ‚ç‚¹
+            if (TentativeGCost < Neighbor->GCost || !OpenList.Contains(Neighbor))
+            {
+                Neighbor->GCost = TentativeGCost;
+                Neighbor->HCost = CalculateHCost(Neighbor->X, Neighbor->Y, EndX, EndY);
+                Neighbor->ParentNode = CurrentNode;
+
+                // æœªåœ¨å¼€æ”¾åˆ—è¡¨åˆ™æ·»åŠ 
+                if (!OpenList.Contains(Neighbor))
+                {
+                    OpenList.Add(Neighbor);
+                }
+            }
         }
     }
+
+    // æ‰¾ä¸åˆ°è·¯å¾„
+    UE_LOG(LogTemp, Warning, TEXT("No path found!"));
+    return Path;
+}
+
+void AGridManager::LoadLevelData(ULevelDataAsset* NewLevelData)
+{
+    if (!NewLevelData) return;
+
+    CurrentLevelData = NewLevelData;
+    GenerateGridFromConfig(NewLevelData);
+
+       // ä¿ç•™ä½ çš„åˆ†æ”¯ï¼šè°ƒç”¨è‡ªå®šä¹‰è°ƒè¯•ç»˜åˆ¶æ–¹æ³•ï¼ˆè‹¥åç»­å¼ƒç”¨å¯æ³¨é‡Šï¼‰
+DrawDebugGrid();
+
+    // ä¿ç•™ä¸»åˆ†æ”¯ï¼šæ ‡å‡†åŒ–è°ƒè¯•ç»˜åˆ¶ï¼ˆé˜»æŒ¡æ ¼å­çº¢è‰²è¾¹æ¡†ï¼Œå¯æ§å¼€å…³ï¼‰
+  if (bDrawDebug)
+  {
+      DrawDebugBox(
+          GetWorld(),
+          GridNodes[Index].WorldLocation,
+          FVector(TileSize / 2 * 0.9f, TileSize / 2 * 0.9f, 2.0f),
+          bBlocked ? FColor::Red : FColor::White,  // é˜»æŒ¡ä¸ºçº¢è‰²ï¼Œå¦åˆ™ç™½è‰²
+          true,
+          30.0f,  // æŒç»­30ç§’ï¼ˆä¾¿äºè§‚å¯Ÿï¼‰
+          0,
+          3.0f    // çº¿å®½åŠ ç²—
+      );
+  }
+
+    // ä¿ç•™ä½ çš„åˆ†æ”¯ï¼šæ—¥å¿—æ‰“å°ï¼ˆæ›¿æ¢å˜é‡åé€‚é…ä¸»åˆ†æ”¯è§„èŒƒï¼‰
+UE_LOG(LogTemp, Log, TEXT("Loaded level data: Grid %dx%d, Cell size: %f"),
+      GridWidthCount, GridHeightCount, TileSize);
+}
+
+bool AGridManager::IsValidCoordinate(int32 X, int32 Y) const
+{
+    return X >= 0 && X < GridWidth&& Y >= 0 && Y < GridHeight;
+}
+
+TArray<FGridNode*> AGridManager::GetNeighborNodes(FGridNode* CurrentNode)
+{
+    TArray<FGridNode*> Neighbors;
+
+    // æ£€æŸ¥8ä¸ªæ–¹å‘çš„é‚»å±…ï¼ˆå¦‚æœéœ€è¦4æ–¹å‘å¯»è·¯å¯ä»¥æ³¨é‡Šæ‰å¯¹è§’çº¿æ–¹å‘ï¼‰
+    for (int32 YOffset = -1; YOffset <= 1; YOffset++)
+    {
+        for (int32 XOffset = -1; XOffset <= 1; XOffset++)
+        {
+            // è·³è¿‡å½“å‰èŠ‚ç‚¹
+            if (XOffset == 0 && YOffset == 0)
+                continue;
+
+            int32 CheckX = CurrentNode->X + XOffset;
+            int32 CheckY = CurrentNode->Y + YOffset;
+
+            if (IsValidCoordinate(CheckX, CheckY))
+            {
+                Neighbors.Add(&GridNodes[CheckY * GridWidth + CheckX]);
+            }
+        }
+    }
+
     return Neighbors;
 }
 
-/**
- * ÓÅ»¯Â·¾¶£¨ÒÆ³ıÈßÓà½Úµã£¬Ê¹Â·¾¶¸üÆ½»¬£©
- * Ô­Àí£ºµ±Á¬ĞøÈı¸öµãÔÚÍ¬Ò»Ö±ÏßÉÏÊ±£¬ÖĞ¼äµã¿ÉÊ¡ÂÔ
- * @param RawPath Ô­Ê¼Â·¾¶
- */
-void AGridManager::OptimizePath(TArray<FIntPoint>& RawPath)
+float AGridManager::CalculateHCost(int32 X, int32 Y, int32 TargetX, int32 TargetY)
 {
-    // Â·¾¶µãÌ«ÉÙÎŞĞèÓÅ»¯
-    if (RawPath.Num() <= 2) return;
+    // ä½¿ç”¨æ›¼å“ˆé¡¿è·ç¦»ä½œä¸ºå¯å‘å¼å‡½æ•°
+    int32 DeltaX = FMath::Abs(X - TargetX);
+    int32 DeltaY = FMath::Abs(Y - TargetY);
+    return (DeltaX + DeltaY) * 10.0f; // ä¹˜ä»¥æ ¼å­å¤§å°ç›¸å…³çš„ç³»æ•°
+}
 
-    TArray<FIntPoint> Optimized;
-    Optimized.Add(RawPath[0]);  // Ìí¼ÓÆğµã
-    FIntPoint PrevDir = RawPath[1] - RawPath[0];  // ³õÊ¼·½Ïò
-
-    // ±éÀúÔ­Ê¼Â·¾¶£¬±£Áô·½Ïò¸Ä±äµÄµã
-    for (int32 i = 2; i < RawPath.Num(); i++)
+void AGridManager::ResetPathfindingData()
+{
+    for (auto& Node : GridNodes)
     {
-        FIntPoint CurrentDir = RawPath[i] - RawPath[i - 1];
-        // ·½Ïò¸Ä±äÊ±£¬±£ÁôÇ°Ò»¸öµã
-        if (CurrentDir != PrevDir)
+        Node.GCost = 0;
+        Node.HCost = 0;
+        Node.ParentNode = nullptr;
+    }
+}
+
+void AGridManager::GenerateGridFromConfig(ULevelDataAsset* LevelData)
+{
+    GridWidth = LevelData->GridWidth;
+    GridHeight = LevelData->GridHeight;
+    CellSize = LevelData->CellSize;
+    GridNodes.Empty(GridWidth * GridHeight);
+
+    // åˆå§‹åŒ–ç½‘æ ¼
+    for (int32 Y = 0; Y < GridHeight; Y++)
+    {
+        for (int32 X = 0; X < GridWidth; X++)
         {
-            Optimized.Add(RawPath[i - 1]);
-            PrevDir = CurrentDir;
+            FGridNode Node;
+            Node.X = X;
+            Node.Y = Y;
+            Node.WorldLocation = GridToWorld(X, Y);
+            Node.bIsBlocked = false;
+            Node.OccupyingActor = nullptr;
+            Node.Cost = 1.0f;
+
+            GridNodes.Add(Node);
         }
     }
-    Optimized.Add(RawPath.Last());  // Ìí¼ÓÖÕµã
-    RawPath = Optimized;  // ¸üĞÂÎªÓÅ»¯ºóµÄÂ·¾¶
+
+    // åº”ç”¨å…³å¡é…ç½®
+    for (const auto& GridConfig : LevelData->GridConfigurations)
+    {
+        SetTileBlocked(GridConfig.X, GridConfig.Y, GridConfig.bIsBlocked);
+
+        // å¦‚æœé…ç½®äº†å»ºç­‘ç±»å‹ï¼Œç”Ÿæˆå»ºç­‘
+        if (GridConfig.BuildingClass)
+        {
+            FVector SpawnLocation = GridToWorld(GridConfig.X, GridConfig.Y);
+            SpawnLocation.Z += 50.0f; // ç¨å¾®æŠ¬é«˜é¿å…ç¢°æ’
+            AActor* NewBuilding = GetWorld()->SpawnActor<AActor>(
+                GridConfig.BuildingClass,
+                SpawnLocation,
+                FRotator::ZeroRotator
+                );
+
+            if (NewBuilding)
+            {
+                // æ›´æ–°æ ¼å­çš„å æ®è€…
+                int32 Index = GridConfig.Y * GridWidth + GridConfig.X;
+                if (Index >= 0 && Index < GridNodes.Num())
+                {
+                    GridNodes[Index].OccupyingActor = NewBuilding;
+                }
+            }
+        }
+    }
+}
+
+void AGridManager::DrawDebugGrid()
+{
+#if WITH_EDITOR
+    for (int32 Y = 0; Y < GridHeight; Y++)
+    {
+        for (int32 X = 0; X < GridWidth; X++)
+        {
+            FVector WorldLoc = GridToWorld(X, Y);
+            FVector BoxExtent(CellSize / 2.0f - 1.0f, CellSize / 2.0f - 1.0f, 50.0f);
+
+            // æ ¹æ®æ˜¯å¦è¢«é˜»æŒ¡è®¾ç½®ä¸åŒé¢œè‰²
+            FColor Color = IsTileWalkable(X, Y) ? FColor::Green : FColor::Red;
+
+            DrawDebugBox(GetWorld(), WorldLoc, BoxExtent, Color, false, 30.0f, 0, 2.0f);
+        }
+    }
+#endif
 }
