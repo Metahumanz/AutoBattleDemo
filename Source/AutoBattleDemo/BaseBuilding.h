@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
+#include "RTSCoreTypes.h"
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "BaseBuilding.generated.h"
@@ -35,4 +35,13 @@ public:
 	// 血量
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 		float MaxHealth;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
+		int32 GridX; // 建筑所在网格的 X 坐标
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
+		int32 GridY; // 建筑所在网格的 Y 坐标
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Team")
+		ETeam TeamID; // 建筑所属阵营（玩家/敌人）
 };
