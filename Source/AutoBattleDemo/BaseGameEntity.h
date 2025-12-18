@@ -1,12 +1,13 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "GameFramework/Pawn.h"
+#include "GameFramework/Actor.h"
 #include "RTSCoreTypes.h"
 #include "BaseGameEntity.generated.h"
 
 // 所有游戏实体的基类（兵种和建筑的共同父类）
+// 修正：继承 AActor 而不是 APawn
 UCLASS()
-class AUTOBATTLEDEMO_API ABaseGameEntity : public APawn
+class AUTOBATTLEDEMO_API ABaseGameEntity : public AActor
 {
     GENERATED_BODY()
 

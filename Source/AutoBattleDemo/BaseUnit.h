@@ -1,6 +1,8 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "BaseGameEntity.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "RTSCoreTypes.h"
 #include "BaseUnit.generated.h"
 
 // 士兵状态机
@@ -21,6 +23,10 @@ public:
     ABaseUnit();
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
+
+    // --- 兵种类型 ---
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Unit")
+        EUnitType UnitType;
 
     // --- 供 GameMode 调用 ---
     UFUNCTION(BlueprintCallable)
@@ -49,16 +55,12 @@ public:
 protected:
     // --- 核心AI逻辑（可被子类重写） ---
 
-    // 寻找目标（子类可重写改变优先级）
     virtual AActor* FindClosestEnemyBuilding();
 
-    // 请求路径
     void RequestPathToTarget();
 
-    // 沿路径移动
     void MoveAlongPath(float DeltaTime);
 
-    // 执行攻击（子类可重写改变攻击方式）
     virtual void PerformAttack();
 
     // 当前状态

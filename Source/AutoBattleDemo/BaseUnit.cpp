@@ -13,13 +13,13 @@ ABaseUnit::ABaseUnit()
 
     // 创建胶囊体
     CapsuleComp = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CapsuleComp"));
-    RootComponent = CapsuleComp;
+    CapsuleComp->SetupAttachment(RootComponent);
     CapsuleComp->InitCapsuleSize(40.0f, 90.0f);
     CapsuleComp->SetCollisionProfileName(TEXT("Pawn"));
 
     // 创建模型
     MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
-    MeshComp->SetupAttachment(RootComponent);
+    MeshComp->SetupAttachment(CapsuleComp);
 
     // 默认属性
     MaxHealth = 100.0f;
@@ -28,6 +28,7 @@ ABaseUnit::ABaseUnit()
     MoveSpeed = 300.0f;
     AttackInterval = 1.0f;
 
+    UnitType = EUnitType::Barbarian; // 默认野蛮人
     CurrentState = EUnitState::Idle;
     LastAttackTime = 0.0f;
     CurrentPathIndex = 0;
@@ -36,7 +37,7 @@ ABaseUnit::ABaseUnit()
     bIsActive = false;
 
     TeamID = ETeam::Player;
-    bIsTargetable = false; // 士兵不是主要攻击目标
+    bIsTargetable = false;
 }
 
 void ABaseUnit::BeginPlay()
@@ -87,7 +88,6 @@ void ABaseUnit::Tick(float DeltaTime)
         }
         else
         {
-            // 检查目标是否还有效
             ABaseGameEntity* TargetEntity = Cast<ABaseGameEntity>(CurrentTarget);
             if (!TargetEntity || TargetEntity->CurrentHealth <= 0 || CurrentTarget->IsPendingKill())
             {
@@ -166,7 +166,7 @@ AActor* ABaseUnit::FindClosestEnemyBuilding()
 
             if (Distance <= AttackRange)
             {
-                return Building; // 优先返回攻击范围内的
+                return Building;
             }
 
             if (Distance < ClosestDistance)
@@ -196,7 +196,6 @@ void ABaseUnit::RequestPathToTarget()
 
     UE_LOG(LogTemp, Log, TEXT("[Unit] %s path: %d waypoints"), *GetName(), PathPoints.Num());
 
-    // 调试绘制
     if (PathPoints.Num() > 1)
     {
         for (int32 i = 0; i < PathPoints.Num() - 1; i++)
@@ -206,7 +205,6 @@ void ABaseUnit::RequestPathToTarget()
         }
     }
 
-    // 跳过起点
     if (PathPoints.Num() > 1 && FVector::DistSquared(PathPoints[0], GetActorLocation()) < 100.0f)
     {
         CurrentPathIndex = 1;

@@ -1,18 +1,9 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "BaseGameEntity.h"
+#include "RTSCoreTypes.h"
 #include "BaseBuilding.generated.h"
 
-// 建筑类型枚举
-UENUM(BlueprintType)
-enum class EBuildingType : uint8
-{
-    Resource,      // 资源建筑（矿场）
-    Defense,       // 防御建筑（炮塔）
-    Headquarters,  // 大本营
-    Wall,          // 墙
-    Other          // 其他
-};
 
 UCLASS()
 class AUTOBATTLEDEMO_API ABaseBuilding : public ABaseGameEntity
@@ -35,15 +26,22 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Building")
         int32 MaxLevel;
 
+    // --- 网格坐标（关键！供炸弹人使用） ---
+    // 这个建筑在成员A的GridManager中占据的网格坐标
+    // 成员C在生成建筑时需要设置这两个值
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
+        int32 GridX;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Grid")
+        int32 GridY;
+
     // --- 升级系统 ---
     UFUNCTION(BlueprintCallable, Category = "Building")
         void LevelUp();
 
-    // 获取升级所需资源（供成员C的UI调用）
     UFUNCTION(BlueprintCallable, Category = "Building")
         void GetUpgradeCost(int32& OutGold, int32& OutElixir);
 
-    // 检查是否可以升级
     UFUNCTION(BlueprintCallable, Category = "Building")
         bool CanUpgrade() const;
 
@@ -55,10 +53,8 @@ public:
         class UStaticMeshComponent* MeshComp;
 
 protected:
-    // 升级时的属性提升（子类可重写）
     virtual void ApplyLevelUpBonus();
 
-    // 升级基础花费
     UPROPERTY(EditAnywhere, Category = "Building|Upgrade")
         int32 BaseUpgradeGoldCost;
 

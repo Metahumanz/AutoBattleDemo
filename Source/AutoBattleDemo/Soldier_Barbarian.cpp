@@ -2,11 +2,14 @@
 
 ASoldier_Barbarian::ASoldier_Barbarian()
 {
-    // 野蛮人属性：高血量，近战
+    // 设置兵种类型
+    UnitType = EUnitType::Barbarian;
+
+    // 野蛮人属性
     MaxHealth = 150.0f;
-    AttackRange = 150.0f;  // 近战距离
+    AttackRange = 150.0f;
     Damage = 15.0f;
-    MoveSpeed = 250.0f;     // 较慢
+    MoveSpeed = 250.0f;
     AttackInterval = 1.0f;
 }
 

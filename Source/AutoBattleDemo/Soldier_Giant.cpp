@@ -5,11 +5,14 @@
 
 ASoldier_Giant::ASoldier_Giant()
 {
-    // 巨人属性：超高血量，慢速，近战
-    MaxHealth = 500.0f;     // 血牛！
+    // 设置兵种类型
+    UnitType = EUnitType::Giant;
+
+    // 巨人属性
+    MaxHealth = 500.0f;
     AttackRange = 150.0f;
-    Damage = 30.0f;         // 高攻击
-    MoveSpeed = 150.0f;     // 很慢
+    Damage = 30.0f;
+    MoveSpeed = 150.0f;
     AttackInterval = 1.5f;
 }
 
@@ -23,7 +26,7 @@ void ASoldier_Giant::BeginPlay()
 
 AActor* ASoldier_Giant::FindClosestEnemyBuilding()
 {
-    // 第一步：优先寻找防御塔
+    // 第一优先级：防御塔
     TArray<AActor*> AllDefenses;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABuilding_Defense::StaticClass(), AllDefenses);
 
@@ -40,7 +43,6 @@ AActor* ASoldier_Giant::FindClosestEnemyBuilding()
         {
             float Distance = FVector::Dist(GetActorLocation(), Defense->GetActorLocation());
 
-            // 优先返回攻击范围内的防御塔
             if (Distance <= AttackRange)
             {
                 UE_LOG(LogTemp, Warning, TEXT("[Giant] %s targeting defense tower: %s (in range)"),
@@ -56,7 +58,6 @@ AActor* ASoldier_Giant::FindClosestEnemyBuilding()
         }
     }
 
-    // 如果找到防御塔，返回最近的
     if (ClosestDefense)
     {
         UE_LOG(LogTemp, Warning, TEXT("[Giant] %s targeting defense tower: %s (distance: %f)"),
@@ -64,7 +65,7 @@ AActor* ASoldier_Giant::FindClosestEnemyBuilding()
         return ClosestDefense;
     }
 
-    // 第二步：没有防御塔了，找普通建筑
+    // 第二优先级：普通建筑
     TArray<AActor*> AllBuildings;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseBuilding::StaticClass(), AllBuildings);
 
@@ -75,7 +76,6 @@ AActor* ASoldier_Giant::FindClosestEnemyBuilding()
     {
         ABaseBuilding* Building = Cast<ABaseBuilding>(Actor);
 
-        // 排除已经找过的防御塔
         if (Building &&
             !Building->IsA(ABuilding_Defense::StaticClass()) &&
             Building->TeamID != this->TeamID &&

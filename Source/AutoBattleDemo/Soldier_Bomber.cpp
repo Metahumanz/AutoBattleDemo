@@ -3,15 +3,19 @@
 #include "GridManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
+#include "BaseUnit.h"
 
 ASoldier_Bomber::ASoldier_Bomber()
 {
-    // 炸弹人属性：低血量，高爆发
+    // 设置兵种类型
+    UnitType = EUnitType::Bomber;
+
+    // 炸弹人属性
     MaxHealth = 50.0f;
-    AttackRange = 100.0f;   // 必须走很近才能引爆
-    Damage = 0.0f;          // 普通攻击无伤害
-    MoveSpeed = 350.0f;     // 最快！
-    AttackInterval = 0.0f;  // 一次性攻击
+    AttackRange = 100.0f;
+    Damage = 0.0f;
+    MoveSpeed = 350.0f;
+    AttackInterval = 0.0f;
 
     ExplosionRadius = 300.0f;
     ExplosionDamage = 200.0f;
@@ -27,7 +31,6 @@ void ASoldier_Bomber::BeginPlay()
 
 AActor* ASoldier_Bomber::FindClosestEnemyBuilding()
 {
-    // 优先寻找墙（BuildingType == Wall）
     TArray<AActor*> AllBuildings;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseBuilding::StaticClass(), AllBuildings);
 
@@ -65,7 +68,6 @@ AActor* ASoldier_Bomber::FindClosestEnemyBuilding()
             }
             else
             {
-                // 备选：其他建筑
                 if (Distance < ClosestOtherDistance)
                 {
                     ClosestOtherDistance = Distance;
@@ -75,7 +77,6 @@ AActor* ASoldier_Bomber::FindClosestEnemyBuilding()
         }
     }
 
-    // 优先返回墙
     if (ClosestWall)
     {
         UE_LOG(LogTemp, Warning, TEXT("[Bomber] %s targeting wall: %s"),
@@ -83,7 +84,6 @@ AActor* ASoldier_Bomber::FindClosestEnemyBuilding()
         return ClosestWall;
     }
 
-    // 没有墙了，炸其他建筑
     if (ClosestOther)
     {
         UE_LOG(LogTemp, Log, TEXT("[Bomber] %s no walls found, targeting: %s"),
@@ -113,7 +113,6 @@ void ASoldier_Bomber::PerformAttack()
 
     if (Distance > AttackRange)
     {
-        // 还没到攻击距离，继续移动
         RequestPathToTarget();
         if (PathPoints.Num() > 0)
         {
@@ -122,7 +121,6 @@ void ASoldier_Bomber::PerformAttack()
         return;
     }
 
-    // 到达攻击距离，执行自爆！
     UE_LOG(LogTemp, Error, TEXT("[Bomber] %s EXPLODING!!!"), *GetName());
     SuicideAttack();
 }
@@ -131,7 +129,7 @@ void ASoldier_Bomber::SuicideAttack()
 {
     FVector ExplosionCenter = GetActorLocation();
 
-    // 绘制爆炸范围（调试）
+    // 绘制爆炸范围
     DrawDebugSphere(GetWorld(), ExplosionCenter, ExplosionRadius,
         16, FColor::Orange, false, 3.0f, 0, 5.0f);
 
@@ -140,6 +138,8 @@ void ASoldier_Bomber::SuicideAttack()
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseBuilding::StaticClass(), AllBuildings);
 
     int32 HitCount = 0;
+    TArray<ABaseBuilding*> DestroyedWalls; // 记录被炸毁的墙
+
     for (AActor* Actor : AllBuildings)
     {
         ABaseBuilding* Building = Cast<ABaseBuilding>(Actor);
@@ -152,6 +152,9 @@ void ASoldier_Bomber::SuicideAttack()
 
             if (Distance <= ExplosionRadius)
             {
+                // 记录爆炸前血量
+                float HealthBefore = Building->CurrentHealth;
+
                 // 应用伤害
                 FDamageEvent DamageEvent;
                 Building->TakeDamage(ExplosionDamage, DamageEvent, nullptr, this);
@@ -159,27 +162,41 @@ void ASoldier_Bomber::SuicideAttack()
 
                 UE_LOG(LogTemp, Warning, TEXT("[Bomber] %s hit %s for %f damage!"),
                     *GetName(), *Building->GetName(), ExplosionDamage);
+
+                // 检查是否炸毁了墙
+                if (Building->BuildingType == EBuildingType::Wall &&
+                    HealthBefore > 0 && Building->CurrentHealth <= 0)
+                {
+                    DestroyedWalls.Add(Building);
+                }
             }
         }
     }
 
     UE_LOG(LogTemp, Error, TEXT("[Bomber] %s explosion hit %d buildings!"), *GetName(), HitCount);
 
-    // 如果炸毁了墙，通知 GridManager 更新网格
-    ABaseBuilding* TargetBuilding = Cast<ABaseBuilding>(CurrentTarget);
-    if (TargetBuilding && TargetBuilding->BuildingType == EBuildingType::Wall)
+    // 【关键】通知 GridManager 更新网格
+    if (DestroyedWalls.Num() > 0 && GridManagerRef)
     {
-        if (GridManagerRef)
+        for (ABaseBuilding* Wall : DestroyedWalls)
         {
-            FVector WallPos = TargetBuilding->GetActorLocation();
-            // 假设 GridManager 有 UpdateTileStatus 方法
-            // GridManagerRef->SetTileBlocked(WallPos.X, WallPos.Y, false);
+            // 检查墙是否有有效的网格坐标
+            if (Wall->GridX >= 0 && Wall->GridY >= 0)
+            {
+                // 调用成员A的接口，将这个格子设为可通行
+                GridManagerRef->SetTileBlocked(Wall->GridX, Wall->GridY, false);
 
-            UE_LOG(LogTemp, Warning, TEXT("[Bomber] Wall destroyed, grid should update at %s"),
-                *WallPos.ToString());
+                UE_LOG(LogTemp, Error, TEXT("[Bomber] Wall destroyed at Grid (%d, %d) - Grid updated!"),
+                    Wall->GridX, Wall->GridY);
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("[Bomber] Wall %s has no valid grid position! (GridX=%d, GridY=%d)"),
+                    *Wall->GetName(), Wall->GridX, Wall->GridY);
+            }
         }
     }
 
-    // 自爆后销毁自己
+    // 自爆后销毁
     Destroy();
 }
