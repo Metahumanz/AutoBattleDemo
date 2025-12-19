@@ -25,6 +25,7 @@ enum class ETeam : uint8
 UENUM(BlueprintType)
 enum class EUnitType : uint8
 {
+    Soldier UMETA(DisplayName = "Soldier"),
     Barbarian  UMETA(DisplayName = "Barbarian"),  // Ò°ÂùÈË
     Archer     UMETA(DisplayName = "Archer"),     // ¹­¼ıÊÖ
     Giant      UMETA(DisplayName = "Giant"),      // ¾ŞÈË
