@@ -1,77 +1,75 @@
 # AutoBattleDemo
 
-## UE4 C++ Final Project by Team 657220
+## Team 657220 UE4 C++ 期末项目
 
-A minimal auto-battler prototype built with **Unreal Engine 4.24** and **C++**. Units autonomously navigate and attack enemy structures using UE4’s AI and NavMesh systems.
+这是一个基于 **Unreal Engine 4.24** 和 **C++** 构建的极简自动对战（Auto-battler）原型。单位利用 UE4 的 AI 和 NavMesh 系统自动寻路并攻击敌方建筑。
 
-> ✅ Meets all course requirements:  
-> - Core logic implemented in **C++** (with Blueprint integration)  
-> - Developed collaboratively using **Git**  
-> - Uses **OOP**, **STL**, and modern C++ features (e.g., `auto`, `nullptr`)
-
----
-
-## Gameplay Overview
-
-- Press the **"Spawn Warrior"** button to deploy units.  
-- Units automatically pathfind to the enemy base using **NavMesh**.  
-- On reaching attack range, they deal damage over time.  
-- Destroy the red enemy base to win.
-
-This is a technical prototype focused on core systems, not full gameplay depth.
+> ✅ 满足所有课程要求：
+> - 核心逻辑由 **C++** 实现（并与蓝图集成）
+> - 使用 **Git** 进行协同开发
+> - 使用了 **OOP**（面向对象编程）、**STL** 以及现代 C++ 特性（如 `auto`, `nullptr`）
 
 ---
 
-## Technical Implementation
+## 游戏玩法概览
 
-### Core Architecture
-- Custom `AGameMode` spawns all game objects at runtime  
-- `ABase` class provides health and destruction logic  
-- No actors are placed directly in the level — everything is dynamically generated
+- 点击 **“Spawn Warrior” (生成战士)** 按钮部署单位。
+- 单位使用 **NavMesh**（导航网格）自动寻路至敌方基地。
+- 到达攻击范围后，它们会持续造成伤害。
+- 摧毁红色的敌方基地即可获胜。
 
-### AI & Navigation
-- Units use `AAIController` and `UNavigationSystemV1` for autonomous movement  
-- NavMesh Bounds Volume enables pathfinding
-
-### Integration
-- UMG UI calls C++ functions via `UFUNCTION(BlueprintCallable)`  
-- Blueprint classes inherit from C++ base types for extensibility
+这是一个专注于核心系统的技术原型，不包含完整的游戏深度。
 
 ---
 
-## How to Run
+## 技术实现
 
-### Requirements
-- Windows 10/11  
-- Visual Studio 2019 (with C++ desktop workload)  
-- Unreal Engine **4.24** (installed via Epic Launcher)
+### 核心架构
+- 自定义 `AGameMode` 在运行时生成所有游戏对象
+- `ABase` 类提供生命值和销毁逻辑
+- 关卡中不直接放置 Actor —— 所有内容均为动态生成
 
-### Steps
-1. Clone this repository  
-2. Right-click `AutoBattleDemo.uproject` → **Generate Visual Studio project files**  
-3. Open the generated `.sln` in Visual Studio  
-4. Set configuration to **Development Editor**, platform to **Win64**  
-5. Press **Ctrl+F5** to compile and launch the editor  
-6. Open `Content/Maps/Map_Main.umap` and click **Play**
+### AI 与导航
+- 单位使用 `AAIController` 和 `UNavigationSystemV1` 实现自主移动
+- 使用 NavMesh Bounds Volume（导航网格边界体积）启用寻路功能
+
+### 集成
+- UMG UI 通过 `UFUNCTION(BlueprintCallable)` 调用 C++ 函数
+- 蓝图类继承自 C++ 基类以实现扩展性
 
 ---
 
-## Project Structure
+## 运行指南
+
+### 环境要求
+- Windows 10/11
+- Visual Studio 2019（需安装 C++ 桌面开发工作负载）
+- Unreal Engine **4.24**（通过 Epic Launcher 安装）
+
+### 步骤
+1. 克隆此仓库
+2. 右键点击 `AutoBattleDemo.uproject` → 选择 **Generate Visual Studio project files**（生成 VS 项目文件）
+3. 在 Visual Studio 中打开生成的 `.sln` 文件
+4. 将解决方案配置设置为 **Development Editor**，平台设置为 **Win64**
+5. 按 **Ctrl+F5** 编译并启动编辑器
+6. 打开 `Content/Maps/Map_Main.umap` 并点击 **Play**（运行）
+
+---
+
+## 项目结构
 
 ```text
 AutoBattleDemo/
-├── Source/AutoBattleDemo/     # C++ source (GameMode, ABase, spawning logic)
-├── Content/Blueprints/        # Unit and UI Blueprints
-├── Content/Maps/Map_Main.umap # Empty scene (all content spawned at runtime)
+├── Source/AutoBattleDemo/     # C++ 源码 (GameMode, ABase, 生成逻辑)
+├── Content/Blueprints/        # 单位和 UI 蓝图
+├── Content/Maps/Map_Main.umap # 空场景 (所有内容在运行时生成)
 └── AutoBattleDemo.uproject
 ```
 
-
-
 ---
 
-## License
+## 许可证
 
-For educational purposes only.  
+仅供教育用途。
 
 © 2025 Team 657220
