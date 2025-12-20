@@ -32,4 +32,11 @@ public:
     // 玩家的军队阵容
     UPROPERTY(BlueprintReadWrite, Category = "SaveData")
         TArray<FUnitSaveData> PlayerArmy;
+
+    // 保存基地建筑布局
+    UPROPERTY(BlueprintReadWrite, Category = "SaveData")
+        TArray<FBuildingSaveData> SavedBuildings;
+
+    // 标记：是否已经初始化过基地？(防止第一次运行把预设的删了)
+    bool bHasSavedBase = false;
 };

@@ -48,6 +48,12 @@ public:
     void OnActorKilled(AActor* Victim, AActor* Killer);
     void CheckWinCondition();
 
+    // 保存基地建筑数据
+    void SaveBaseLayout();
+
+    // 加载并生成基地建筑
+    void LoadAndSpawnBase();
+
 protected:
     UPROPERTY(BlueprintReadOnly, Category = "GameFlow")
         EGameState CurrentState;

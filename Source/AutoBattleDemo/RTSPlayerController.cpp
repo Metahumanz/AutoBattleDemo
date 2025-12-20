@@ -9,7 +9,8 @@
 #include "RTSCoreTypes.h"
 #include "BaseUnit.h"
 #include "BaseBuilding.h"
-#include "Building_Resource.h" // 必须引用，用于点击收集资源
+#include "Building_Resource.h" // 用于点击收集资源
+#include "Components/StaticMeshComponent.h"
 
 ARTSPlayerController::ARTSPlayerController()
 {
@@ -173,6 +174,13 @@ void ARTSPlayerController::HandlePlacementMode(const FHitResult& Hit, AGridManag
     // 分流：造兵 vs 造建筑
     if (bIsPlacingUnit)
     {
+        // 玩家只能在半区 (X < 8) 放兵
+        if (X >= 8)
+        {
+            if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Must place in Deployment Zone (X < 8)!"));
+            return; // 直接返回，不执行购买
+        }
+
         // 价格表 (建议后续移至 DataTable)
         int32 Cost = 50;
         if (PendingUnitType == EUnitType::Archer) Cost = 100;
@@ -186,6 +194,13 @@ void ARTSPlayerController::HandlePlacementMode(const FHitResult& Hit, AGridManag
     }
     else if (bIsPlacingBuilding)
     {
+        // 玩家只能在半区 (X < 8) 放
+        if (X >= 8)
+        {
+            if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Must place in Deployment Zone (X < 8)!"));
+            return; // 直接返回，不执行购买
+        }
+
         int32 Cost = 200;
         if (PendingBuildingType == EBuildingType::GoldMine) Cost = 150;
         else if (PendingBuildingType == EBuildingType::ElixirPump) Cost = 150;
@@ -289,7 +304,7 @@ void ARTSPlayerController::HandleLeftClick()
     AGridManager* GridManager = Cast<AGridManager>(UGameplayStatics::GetActorOfClass(GetWorld(), AGridManager::StaticClass()));
     AActor* HitActor = Hit.GetActor();
 
-    // 3. 模式分发 (这是最核心的改动，逻辑一目了然)
+    // 3. 模式分发
     if (bIsPlacingUnit || bIsPlacingBuilding)
     {
         // 放置模式：必须点到网格上才处理
@@ -339,6 +354,7 @@ void ARTSPlayerController::UpdatePlacementGhost()
             {
                 FVector SnapPos = GridManager->GridToWorld(X, Y);
 
+                // 智能计算 Z 轴高度
                 FVector Origin, BoxExtent;
                 PreviewGhostActor->GetActorBounds(false, Origin, BoxExtent);
                 float HoverHeight = BoxExtent.Z + 2.0f;
@@ -346,18 +362,45 @@ void ARTSPlayerController::UpdatePlacementGhost()
 
                 PreviewGhostActor->SetActorLocation(SnapPos);
 
-                // 检查该格子是否可走
-                bool bCanPlace = GridManager->IsTileWalkable(X, Y);
 
-                // 简单粗暴的方法：如果不能放，就隐藏幽灵，或者打印个红字提示
-                // 更好的方法是改变材质颜色(但这需要材质参数支持)
+                // 材质切换逻辑
 
-                // 这里我们用一种简单的方法：如果不能放，把幽灵设为半透明红色(如果材质支持)
-                // 或者简单点：如果不能放，就在屏幕上打印个警告
-                if (!bCanPlace)
+                // 1. 基础检查：格子是否被阻挡
+                bool bTileWalkable = GridManager->IsTileWalkable(X, Y);
+
+                // 2. 区域检查：是否在 X < 8 区域 (只针对造兵)
+                bool bInValidZone = true;
+                if (bIsPlacingUnit || bIsPlacingBuilding)
                 {
-                    // 每一帧都打印，虽然有点刷屏，但能看到效果
-                    if (GEngine) GEngine->AddOnScreenDebugMessage(10, 0.1f, FColor::Red, TEXT("BLOCKED"));
+                    if (X >= 8)
+                    {
+                        bInValidZone = false;
+                    }
+                }
+
+                // 3. 综合判断：必须既可走，又在有效区域内，才是“绿色”
+                bool bCanPlace = bTileWalkable && bInValidZone;
+
+                // 4. 应用材质
+                UStaticMeshComponent* MeshComp = PreviewGhostActor->FindComponentByClass<UStaticMeshComponent>();
+                if (MeshComp)
+                {
+                    if (bCanPlace)
+                    {
+                        // 绿色材质
+                        if (ValidPlacementMaterial)
+                        {
+                            MeshComp->SetMaterial(0, ValidPlacementMaterial);
+                        }
+                    }
+                    else
+                    {
+                        // 红色材质
+                        if (InvalidPlacementMaterial)
+                        {
+                            MeshComp->SetMaterial(0, InvalidPlacementMaterial);
+                        }
+                    }
                 }
             }
         }

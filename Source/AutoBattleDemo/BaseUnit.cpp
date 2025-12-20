@@ -141,6 +141,47 @@ void ABaseUnit::Tick(float DeltaTime)
         PerformAttack();
         break;
     }
+
+    // 防重叠逻辑 (简单的群聚分离力)
+    if (CurrentState != EUnitState::Idle)
+    {
+        // 找附近的队友
+        TArray<FOverlapResult> Overlaps;
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this);
+
+        // 检测周围 50cm 内有没有人
+        bool bHit = GetWorld()->OverlapMultiByChannel(
+            Overlaps,
+            GetActorLocation(),
+            FQuat::Identity,
+            ECC_Pawn,
+            FCollisionShape::MakeSphere(50.0f),
+            Params
+        );
+
+        if (bHit)
+        {
+            FVector SeparationForce = FVector::ZeroVector;
+            for (const FOverlapResult& Res : Overlaps)
+            {
+                ABaseUnit* OtherUnit = Cast<ABaseUnit>(Res.GetActor());
+                if (OtherUnit)
+                {
+                    // 计算推开的方向
+                    FVector Dir = GetActorLocation() - OtherUnit->GetActorLocation();
+                    Dir.Z = 0; // 不要在垂直方向推
+                    SeparationForce += Dir.GetSafeNormal();
+                }
+            }
+
+            // 施加推力 (轻微偏移)
+            if (!SeparationForce.IsNearlyZero())
+            {
+                AddActorWorldOffset(SeparationForce * 10.0f * DeltaTime);
+            }
+        }
+    }
 }
 
 void ABaseUnit::SetUnitActive(bool bActive)

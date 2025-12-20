@@ -62,6 +62,13 @@ protected:
     // 辅助函数：更新幽灵位置
     void UpdatePlacementGhost();
 
+    // 用于幽灵材质切换
+    UPROPERTY(EditDefaultsOnly, Category = "UI|Placement")
+        class UMaterialInterface* ValidPlacementMaterial; // 合法放置时的材质
+
+    UPROPERTY(EditDefaultsOnly, Category = "UI|Placement")
+        UMaterialInterface* InvalidPlacementMaterial; // 非法放置时的材质
+
 
 
 

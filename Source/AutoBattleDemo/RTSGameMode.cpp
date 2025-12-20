@@ -29,7 +29,7 @@ void ARTSGameMode::BeginPlay()
 
     // 简单判断：如果是战斗关卡，直接进入战斗状态
     FString MapName = GetWorld()->GetMapName();
-    if (MapName.Contains("BattleField")) // 假设战斗关卡名字包含 BattleField
+    if (MapName.Contains("BattleField")) // 战斗关卡名字包含 BattleField
     {
         CurrentState = EGameState::Battle;
         LoadAndSpawnUnits(); // 把带来的兵放出来
@@ -38,6 +38,9 @@ void ARTSGameMode::BeginPlay()
     else
     {
         CurrentState = EGameState::Preparation; // 基地里是备战
+
+        // 回到基地，重新把房子盖起来
+        LoadAndSpawnBase();
     }
 }
 
@@ -47,21 +50,32 @@ bool ARTSGameMode::TryBuyUnit(EUnitType Type, int32 Cost, int32 GridX, int32 Gri
     if (CurrentState != EGameState::Preparation) return false;
 
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
+    if (!GI) return false; // 安全检查
 
-    // 检查人口是否已满
+    // --- 区域限制 (避免传送到战场后骑在敌人脸上) ---
+    // 假设地图高度是 20，我们只允许在 X < 8 的区域造兵 (下半区)
+    // 这样 BattleField1 的敌人就可以放在 X > 10 的区域
+    int32 MaxPlayerX = 8;
+
+    if (GridX >= MaxPlayerX)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Cannot place units in Enemy Territory (X>=%d)!"), MaxPlayerX);
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Can't place here! Enemy Territory!"));
+        return false;
+    }
+
+    // 检查人口
     if (GI->CurrentPopulation + 1 > GI->MaxPopulation)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Max Population Reached!"));
         if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Max Population!"));
         return false;
     }
 
-    // 造兵通常消耗圣水 (Elixir)
-    int32 CurrentElixir = GI ? GI->PlayerElixir : 9999;
-
-    if (CurrentElixir < Cost)
+    // 检查圣水
+    // 使用 >= 确保刚好够钱也能买
+    if (GI->PlayerElixir < Cost)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Buy Unit Failed: Not enough Elixir!"));
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Not Enough Elixir!"));
         return false;
     }
 
@@ -69,22 +83,22 @@ bool ARTSGameMode::TryBuyUnit(EUnitType Type, int32 Cost, int32 GridX, int32 Gri
     TSubclassOf<ABaseUnit> SpawnClass = nullptr;
     switch (Type)
     {
-        case EUnitType::Barbarian:  SpawnClass = BarbarianClass; break;
-        case EUnitType::Archer:     SpawnClass = ArcherClass;    break;
-        case EUnitType::Giant:      SpawnClass = GiantClass;     break;
-        case EUnitType::Bomber:     SpawnClass = BomberClass;    break;
+    case EUnitType::Barbarian:  SpawnClass = BarbarianClass; break;
+    case EUnitType::Archer:     SpawnClass = ArcherClass;    break;
+    case EUnitType::Giant:      SpawnClass = GiantClass;     break;
+    case EUnitType::Bomber:     SpawnClass = BomberClass;    break;
     }
 
     if (!SpawnClass || !GridManager) return false;
 
-    // 检查格子是否被阻挡
+    // 检查格子占用
     if (!GridManager->IsTileWalkable(GridX, GridY))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Tile [%d, %d] is blocked!"), GridX, GridY);
-        return false; // 直接拒绝，不扣钱，不生成
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Blocked!"));
+        return false;
     }
 
-    // 高度计算 (通用版：支持 Pawn 和 Character)
+    // 计算高度
     float SpawnZOffset = 0.0f;
     ABaseUnit* DefaultUnit = SpawnClass->GetDefaultObject<ABaseUnit>();
     if (DefaultUnit)
@@ -103,20 +117,18 @@ bool ARTSGameMode::TryBuyUnit(EUnitType Type, int32 Cost, int32 GridX, int32 Gri
     FVector SpawnLoc = GridManager->GridToWorld(GridX, GridY);
     SpawnLoc.Z += SpawnZOffset;
 
+    // 生成
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
     ABaseUnit* NewUnit = GetWorld()->SpawnActor<ABaseUnit>(SpawnClass, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
     if (NewUnit)
-    {
-        if (GI) 
-        {
-            GI->PlayerElixir -= Cost; // 扣除圣水
-            GI->PlayerElixir -= Cost; // 扣钱
-            GI->CurrentPopulation += 1; // 人口固定加 1
-        }
+    {        
+        GI->PlayerElixir -= Cost; // 扣费
+        GI->CurrentPopulation += 1; // 人口
+
         NewUnit->TeamID = ETeam::Player;
-        GridManager->SetTileBlocked(GridX, GridY, true); // 兵也占格子
+        GridManager->SetTileBlocked(GridX, GridY, true);
         return true;
     }
     return false;
@@ -128,36 +140,45 @@ bool ARTSGameMode::TryBuildBuilding(EBuildingType Type, int32 Cost, int32 GridX,
     if (CurrentState != EGameState::Preparation) return false;
 
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
-    // 造建筑通常消耗金币 (Gold)
-    int32 CurrentGold = GI ? GI->PlayerGold : 9999;
+    if (!GI) return false;
 
-    if (CurrentGold < Cost)
+    // 检查金币
+    if (GI->PlayerGold < Cost)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Not enough Gold!"));
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Not Enough Gold!"));
+        return false;
+    }
+
+    // 建筑可以放在限制区域
+    int32 MaxPlayerX = 8;
+
+    if (GridX >= MaxPlayerX)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Cannot build buildings in Enemy Territory (X>=%d)!"), MaxPlayerX);
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Can't place here! Enemy Territory!"));
         return false;
     }
 
     TSubclassOf<ABaseBuilding> SpawnClass = nullptr;
     switch (Type)
     {
-    case EBuildingType::Defense:      SpawnClass = DefenseTowerClass; break;
-    case EBuildingType::GoldMine:     SpawnClass = GoldMineClass;     break;
-    case EBuildingType::ElixirPump:   SpawnClass = ElixirPumpClass;   break;
-    case EBuildingType::Wall:         SpawnClass = WallClass;         break;
-    case EBuildingType::Headquarters: SpawnClass = HQClass;           break;
+        case EBuildingType::Defense:      SpawnClass = DefenseTowerClass; break;
+        case EBuildingType::GoldMine:     SpawnClass = GoldMineClass;     break;
+        case EBuildingType::ElixirPump:   SpawnClass = ElixirPumpClass;   break;
+        case EBuildingType::Wall:         SpawnClass = WallClass;         break;
+        case EBuildingType::Headquarters: SpawnClass = HQClass;           break;
     default: return false;
     }
 
     if (!SpawnClass || !GridManager) return false;
 
-    // 检查格子是否被阻挡
     if (!GridManager->IsTileWalkable(GridX, GridY))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Tile [%d, %d] is blocked!"), GridX, GridY);
-        return false; // 直接拒绝，不扣钱，不生成
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Blocked!"));
+        return false;
     }
 
-    // 建筑高度计算
+    // 高度计算
     float SpawnZOffset = 0.0f;
     ABaseBuilding* DefaultBuilding = SpawnClass->GetDefaultObject<ABaseBuilding>();
     if (DefaultBuilding)
@@ -175,11 +196,10 @@ bool ARTSGameMode::TryBuildBuilding(EBuildingType Type, int32 Cost, int32 GridX,
 
     ABaseBuilding* NewBuilding = GetWorld()->SpawnActor<ABaseBuilding>(SpawnClass, SpawnLoc, FRotator::ZeroRotator, SpawnParams);
     if (NewBuilding)
-    {
-        if (GI) GI->PlayerGold -= Cost; // 扣除金币
-        NewBuilding->TeamID = ETeam::Player;
+    {        
+        GI->PlayerGold -= Cost;
 
-        // 关键：保存网格坐标，因为BaseBuilding有GridX/GridY变量
+        NewBuilding->TeamID = ETeam::Player;
         NewBuilding->GridX = GridX;
         NewBuilding->GridY = GridY;
 
@@ -189,15 +209,110 @@ bool ARTSGameMode::TryBuildBuilding(EBuildingType Type, int32 Cost, int32 GridX,
     return false;
 }
 
-void ARTSGameMode::SaveAndStartBattle(FName LevelName)
+// ---------------------------------------------------------
+// 保存基地 (离开基地前调用)
+// ---------------------------------------------------------
+void ARTSGameMode::SaveBaseLayout()
 {
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
     if (!GI) return;
 
-    // 1. 清空旧数据
+    // 1. 清空旧存档
+    GI->SavedBuildings.Empty();
+    GI->bHasSavedBase = true; // 标记我们已经存过档了
+
+    // 2. 遍历场景里所有的建筑
+    for (TActorIterator<ABaseBuilding> It(GetWorld()); It; ++It)
+    {
+        ABaseBuilding* Building = *It;
+        // 只保存玩家的建筑，且活着的
+        if (Building && Building->TeamID == ETeam::Player && Building->CurrentHealth > 0)
+        {
+            FBuildingSaveData Data;
+            Data.BuildingType = Building->BuildingType;
+            Data.GridX = Building->GridX;
+            Data.GridY = Building->GridY;
+            Data.Level = Building->BuildingLevel;
+
+            GI->SavedBuildings.Add(Data);
+        }
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("Base Saved! Total Buildings: %d"), GI->SavedBuildings.Num());
+}
+
+// ---------------------------------------------------------
+// 加载基地 (回到基地时调用)
+// ---------------------------------------------------------
+void ARTSGameMode::LoadAndSpawnBase()
+{
+    URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
+    // 如果没有存过档(第一次玩)，或者没有 GridManager，就啥也不做
+    if (!GI || !GridManager || !GI->bHasSavedBase) return;
+
+    // 遍历存档
+    for (const FBuildingSaveData& Data : GI->SavedBuildings)
+    {
+        // 1. 找蓝图
+        TSubclassOf<ABaseBuilding> SpawnClass = nullptr;
+        switch (Data.BuildingType)
+        {
+            case EBuildingType::Defense:      SpawnClass = DefenseTowerClass; break;
+            case EBuildingType::GoldMine:     SpawnClass = GoldMineClass;     break;
+            case EBuildingType::ElixirPump:   SpawnClass = ElixirPumpClass;   break;
+            case EBuildingType::Wall:         SpawnClass = WallClass;         break;
+        }
+
+
+        if (!SpawnClass) continue;
+
+        // 2. 算高度 (用之前的通用逻辑)
+        float SpawnZOffset = 0.0f;
+        ABaseBuilding* DefaultBuilding = SpawnClass->GetDefaultObject<ABaseBuilding>();
+        if (DefaultBuilding)
+        {
+            FVector Origin, BoxExtent;
+            DefaultBuilding->GetActorBounds(true, Origin, BoxExtent);
+            SpawnZOffset = BoxExtent.Z;
+        }
+
+        FVector SpawnLoc = GridManager->GridToWorld(Data.GridX, Data.GridY);
+        SpawnLoc.Z += SpawnZOffset;
+
+        // 3. 生成
+        FActorSpawnParameters Params;
+        Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        ABaseBuilding* NewBuilding = GetWorld()->SpawnActor<ABaseBuilding>(SpawnClass, SpawnLoc, FRotator::ZeroRotator, Params);
+        if (NewBuilding)
+        {
+            NewBuilding->TeamID = ETeam::Player;
+            NewBuilding->GridX = Data.GridX;
+            NewBuilding->GridY = Data.GridY;
+            NewBuilding->BuildingLevel = Data.Level; // 恢复等级
+
+            // 恢复阻挡
+            GridManager->SetTileBlocked(Data.GridX, Data.GridY, true);
+        }
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("Base Loaded!"));
+}
+
+void ARTSGameMode::SaveAndStartBattle(FName LevelName)
+{
+    // 先保存基地建筑
+    SaveBaseLayout();
+
+
+    // 保存兵力
+    URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
+    if (!GI) return;
+
+    // 清空旧数据
     GI->PlayerArmy.Empty();
 
-    // 2. 遍历场景里所有的玩家单位
+    // 遍历场景里所有的玩家单位
     for (TActorIterator<ABaseUnit> It(GetWorld()); It; ++It)
     {
         ABaseUnit* Unit = *It;
@@ -220,7 +335,7 @@ void ARTSGameMode::SaveAndStartBattle(FName LevelName)
         }
     }
 
-    // 3. 切换关卡
+    // 切换关卡
     UGameplayStatics::OpenLevel(this, LevelName);
 }
 
@@ -244,12 +359,21 @@ void ARTSGameMode::LoadAndSpawnUnits()
 
         // 计算位置
         FVector SpawnLoc = GridManager->GridToWorld(Data.GridX, Data.GridY);
+
+        // 使用与 TryBuyUnit 完全一致的高度计算逻辑
         float SpawnZOffset = 0.0f;
         ABaseUnit* DefaultUnit = SpawnClass->GetDefaultObject<ABaseUnit>();
         if (DefaultUnit)
         {
             UCapsuleComponent* Cap = DefaultUnit->FindComponentByClass<UCapsuleComponent>();
-            if (Cap) SpawnZOffset = Cap->GetScaledCapsuleHalfHeight();
+            if (Cap)
+                SpawnZOffset = Cap->GetScaledCapsuleHalfHeight();
+            else
+            {
+                FVector Origin, BoxExtent;
+                DefaultUnit->GetActorBounds(true, Origin, BoxExtent);
+                SpawnZOffset = BoxExtent.Z;
+            }
         }
         SpawnLoc.Z += SpawnZOffset;
 
@@ -287,9 +411,11 @@ void ARTSGameMode::OnActorKilled(AActor* Victim, AActor* Killer)
     CheckWinCondition();
 }
 
+
 void ARTSGameMode::CheckWinCondition()
 {
     // 这里由你扩展：
     // 检查是否还有 Enemy HQ -> 胜利
     // 检查是否还有 Player Units -> 失败
 }
+
