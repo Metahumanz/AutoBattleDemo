@@ -77,6 +77,13 @@ bool ARTSGameMode::TryBuyUnit(EUnitType Type, int32 Cost, int32 GridX, int32 Gri
 
     if (!SpawnClass || !GridManager) return false;
 
+    // 检查格子是否被阻挡
+    if (!GridManager->IsTileWalkable(GridX, GridY))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Tile [%d, %d] is blocked!"), GridX, GridY);
+        return false; // 直接拒绝，不扣钱，不生成
+    }
+
     // 高度计算 (通用版：支持 Pawn 和 Character)
     float SpawnZOffset = 0.0f;
     ABaseUnit* DefaultUnit = SpawnClass->GetDefaultObject<ABaseUnit>();
@@ -142,6 +149,13 @@ bool ARTSGameMode::TryBuildBuilding(EBuildingType Type, int32 Cost, int32 GridX,
     }
 
     if (!SpawnClass || !GridManager) return false;
+
+    // 检查格子是否被阻挡
+    if (!GridManager->IsTileWalkable(GridX, GridY))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Build Failed: Tile [%d, %d] is blocked!"), GridX, GridY);
+        return false; // 直接拒绝，不扣钱，不生成
+    }
 
     // 建筑高度计算
     float SpawnZOffset = 0.0f;
