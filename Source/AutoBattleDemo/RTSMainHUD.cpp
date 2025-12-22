@@ -21,6 +21,7 @@ void URTSMainHUD::NativeConstruct()
 	if (Btn_BuildMine)  Btn_BuildMine->OnClicked.AddDynamic(this, &URTSMainHUD::OnClickBuildMine);
 	if (Btn_BuildElixir) Btn_BuildElixir->OnClicked.AddDynamic(this, &URTSMainHUD::OnClickBuildElixir);
 	if (Btn_BuildWall)	Btn_BuildWall->OnClicked.AddDynamic(this, &URTSMainHUD::OnClickBuildWall);
+	if (Btn_BuildBarracks)	Btn_BuildBarracks->OnClicked.AddDynamic(this, &URTSMainHUD::OnClickBuildBarracks);
 
 	// 绑定流程按钮
 	if (Btn_StartBattle) Btn_StartBattle->OnClicked.AddDynamic(this, &URTSMainHUD::OnClickStartBattle);
@@ -132,6 +133,22 @@ void URTSMainHUD::OnClickBuildWall()
 		PC->OnSelectBuildingToPlace(EBuildingType::Wall);
 
 		// 归还鼠标焦点 (老规矩，防止点完按钮后没法点地板)
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(false);
+		PC->SetInputMode(InputMode);
+	}
+}
+
+// 实现造兵营逻辑
+void URTSMainHUD::OnClickBuildBarracks()
+{
+	ARTSPlayerController* PC = Cast<ARTSPlayerController>(GetOwningPlayer());
+	if (PC)
+	{
+		PC->OnSelectBuildingToPlace(EBuildingType::Barracks);
+
+		// 归还鼠标焦点
 		FInputModeGameAndUI InputMode;
 		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
 		InputMode.SetHideCursorDuringCapture(false);

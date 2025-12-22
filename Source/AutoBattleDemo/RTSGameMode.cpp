@@ -190,6 +190,7 @@ bool ARTSGameMode::TryBuildBuilding(EBuildingType Type, int32 Cost, int32 GridX,
         case EBuildingType::ElixirPump:   SpawnClass = ElixirPumpClass;   break;
         case EBuildingType::Wall:         SpawnClass = WallClass;         break;
         case EBuildingType::Headquarters: SpawnClass = HQClass;           break;
+        case EBuildingType::Barracks:     SpawnClass = BarracksClass;     break;
     default: return false;
     }
 

@@ -234,6 +234,7 @@ void ARTSPlayerController::HandlePlacementMode(const FHitResult& Hit, AGridManag
         if (PendingBuildingType == EBuildingType::GoldMine) Cost = 150;
         else if (PendingBuildingType == EBuildingType::ElixirPump) Cost = 150;
         else if (PendingBuildingType == EBuildingType::Wall) Cost = 50;
+        else if (PendingBuildingType == EBuildingType::Barracks) Cost = 300;
 
         bSuccess = GM->TryBuildBuilding(PendingBuildingType, Cost, X, Y);
 

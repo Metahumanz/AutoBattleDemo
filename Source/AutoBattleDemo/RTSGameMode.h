@@ -90,7 +90,11 @@ protected:
     UPROPERTY(EditDefaultsOnly, Category = "Classes|Buildings")
         TSubclassOf<class ABaseBuilding> HQClass;         // 大本营
 
-        // --- 关卡数据 (可选，用于加载敌人配置) ---
+    // --- 关卡数据 (可选，用于加载敌人配置) ---
     UPROPERTY(EditDefaultsOnly, Category = "Level Setup")
         ULevelDataAsset* CurrentLevelData;
+
+    // 兵营蓝图
+    UPROPERTY(EditDefaultsOnly, Category = "Classes|Buildings")
+        TSubclassOf<class ABaseBuilding> BarracksClass;
 };

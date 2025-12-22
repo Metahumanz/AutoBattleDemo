@@ -57,6 +57,10 @@ protected:
 	UPROPERTY(meta = (BindWidget))
 		UButton* Btn_BuildWall;
 
+	// 造兵营按钮
+	UPROPERTY(meta = (BindWidget))
+		UButton* Btn_BuildBarracks;
+
 
 
 	// --- 按钮：流程 ---
@@ -79,7 +83,10 @@ protected:
 	UFUNCTION() void OnClickBuildMine();
 	UFUNCTION()	void OnClickBuildElixir();
 	UFUNCTION()	void OnClickBuildWall();
+	UFUNCTION()	void OnClickBuildBarracks();
 
 	UFUNCTION() void OnClickStartBattle();
 	UFUNCTION() void OnClickRemove();
+
+	
 };
