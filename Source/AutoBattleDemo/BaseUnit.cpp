@@ -78,47 +78,37 @@ void ABaseUnit::Tick(float DeltaTime)
     switch (CurrentState)
     {
     case EUnitState::Idle:
-        if (!CurrentTarget)
+        // 倒计时
+        if (RetargetTimer > 0.0f)
         {
-            CurrentTarget = FindClosestTarget();
-            if (CurrentTarget)
-            {
-                float Distance = FVector::Dist(GetActorLocation(), CurrentTarget->GetActorLocation());
-                if (Distance <= AttackRange)
-                {
-                    CurrentState = EUnitState::Attacking;
-                    UE_LOG(LogTemp, Log, TEXT("[Unit] %s in attack range, switching to Attack"), *GetName());
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Log, TEXT("[Unit] %s requesting path (distance: %f)"), *GetName(), Distance);
-                    RequestPathToTarget();
-                    if (PathPoints.Num() > 0)
-                    {
-                        CurrentState = EUnitState::Moving;
-                        UE_LOG(LogTemp, Warning, TEXT("[Unit] %s moving with %d waypoints"),
-                            *GetName(), PathPoints.Num());
-                    }
-                    else
-                    {
-                        UE_LOG(LogTemp, Error, TEXT("[Unit] %s failed to find path!"), *GetName());
-                    }
-                }
-            }
-            else
-            {
-                // 没有找到任何敌方建筑（可能已经全部摧毁）
-                UE_LOG(LogTemp, Warning, TEXT("[Unit] %s found NO enemy buildings!"), *GetName());
-            }
+            RetargetTimer -= DeltaTime;
         }
         else
         {
-            // 检查目标是否失效
-            ABaseGameEntity* TargetEntity = Cast<ABaseGameEntity>(CurrentTarget);
-            if (!TargetEntity || TargetEntity->CurrentHealth <= 0 || CurrentTarget->IsPendingKill())
+            // 只有计时器归零才思考
+            RetargetTimer = 1.0f; // 每 1 秒思考一次，防止卡顿
+
+            if (!CurrentTarget)
             {
-                UE_LOG(LogTemp, Log, TEXT("[Unit] %s target destroyed, searching for new target"), *GetName());
-                CurrentTarget = nullptr; // 目标失效，重新寻找
+                CurrentTarget = FindClosestTarget();
+            }
+
+            if (CurrentTarget)
+            {
+                float Dist = FVector::Dist(GetActorLocation(), CurrentTarget->GetActorLocation());
+                if (Dist <= AttackRange)
+                {
+                    CurrentState = EUnitState::Attacking;
+                }
+                else
+                {
+                    RequestPathToTarget();
+                    // 如果寻路成功，切换状态；如果失败，继续保持 Idle，等下一秒再试
+                    if (PathPoints.Num() > 0)
+                    {
+                        CurrentState = EUnitState::Moving;
+                    }
+                }
             }
         }
         break;
@@ -333,7 +323,7 @@ void ABaseUnit::MoveAlongPath(float DeltaTime)
     }
 
     float DistanceToPoint = FVector::DistSquared(NewLocation, TargetPoint);
-    if (DistanceToPoint < 100.0f)
+    if (DistanceToPoint < 900.0f)
     {
         CurrentPathIndex++;
 

@@ -86,4 +86,8 @@ protected:
     // 子弹蓝图类 (在编辑器里配置 BP_Arrow)
     UPROPERTY(EditDefaultsOnly, Category = "Combat")
         TSubclassOf<class ARTSProjectile> ProjectileClass;
+
+    // 重新寻路时间
+    float RetargetTimer;
+
 };

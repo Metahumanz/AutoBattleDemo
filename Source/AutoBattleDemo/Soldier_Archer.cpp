@@ -58,7 +58,7 @@ void ASoldier_Archer::PerformAttack()
         // --- 修改：生成投射物，而不是直接 TakeDamage ---
         if (ProjectileClass)
         {
-            FVector SpawnLoc = GetActorLocation() + FVector(0, 0, 50); // 从胸口发射
+            FVector SpawnLoc = GetActorLocation() + FVector(0, 0, 100); // 从胸口发射
             FRotator SpawnRot = (CurrentTarget->GetActorLocation() - SpawnLoc).Rotation();
 
             ARTSProjectile* Arrow = GetWorld()->SpawnActor<ARTSProjectile>(ProjectileClass, SpawnLoc, SpawnRot);

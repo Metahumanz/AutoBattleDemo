@@ -64,6 +64,9 @@ void ARTSGameMode::BeginPlay()
 
         // 回到基地，重新把房子盖起来
         LoadAndSpawnBase();
+
+        // 回到基地，带回兵
+        LoadAndSpawnUnits();
     }
 }
 
@@ -151,7 +154,7 @@ bool ARTSGameMode::TryBuyUnit(EUnitType Type, int32 Cost, int32 GridX, int32 Gri
         GI->CurrentPopulation += 1; // 人口
 
         NewUnit->TeamID = ETeam::Player;
-        GridManager->SetTileBlocked(GridX, GridY, true);
+        // GridManager->SetTileBlocked(GridX, GridY, true);
         return true;
     }
     return false;
@@ -415,27 +418,6 @@ void ARTSGameMode::LoadAndSpawnUnits()
         SpawnLoc.Z += SpawnZOffset;
 
 
-
-
-
-
-        // 调试
-        UE_LOG(LogTemp, Warning, TEXT("Spawn Unit: %d | GridZ: %f | Offset: %f | FinalZ: %f"),
-            (int32)Data.UnitType,
-            GridManager->GetActorLocation().Z,
-            SpawnZOffset,
-            SpawnLoc.Z
-        );
-
-        
-
-
-
-
-
-
-        
-
         FActorSpawnParameters Params;
         Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
@@ -443,7 +425,7 @@ void ARTSGameMode::LoadAndSpawnUnits()
         if (NewUnit)
         {
             NewUnit->TeamID = ETeam::Player;
-            GridManager->SetTileBlocked(Data.GridX, Data.GridY, true);
+            // GridManager->SetTileBlocked(Data.GridX, Data.GridY, true);
         }
     }
 }

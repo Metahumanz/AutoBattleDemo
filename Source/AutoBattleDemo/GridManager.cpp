@@ -114,49 +114,81 @@ TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVect
     TArray<FVector> Path;
     int32 StartX, StartY, EndX, EndY;
 
-    // 转换起点和终点到网格坐标
+    // 最先执行坐标转换！
+    // 只有转换成功了，EndX 和 EndY 才有值，后面才能用
     if (!WorldToGrid(StartWorldLoc, StartX, StartY) || !WorldToGrid(EndWorldLoc, EndX, EndY))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Start/End out of grid bounds"));
+        // 只有这里不想打Log的话可以注释掉，因为点击界外很正常
+        // UE_LOG(LogTemp, Warning, TEXT("Start/End out of grid bounds"));
         return Path;
     }
 
-    // 终点不可行走则返回空路径
+    // 定义 Final 目标了
+    int32 FinalEndX = EndX;
+    int32 FinalEndY = EndY;
+
+    // 处理终点阻挡逻辑 (攻击建筑时走过去)
     if (!IsTileWalkable(EndX, EndY))
     {
-        UE_LOG(LogTemp, Warning, TEXT("End tile is blocked"));
+        bool bFoundAlternative = false;
+        TArray<FIntPoint> Neighbors = GetNeighborNodes(EndX, EndY);
+
+        for (const FIntPoint& Neighbor : Neighbors)
+        {
+            if (IsTileWalkable(Neighbor.X, Neighbor.Y))
+            {
+                FinalEndX = Neighbor.X;
+                FinalEndY = Neighbor.Y;
+                bFoundAlternative = true;
+                break; // 找到一个邻居能走就行
+            }
+        }
+
+        if (!bFoundAlternative)
+        {
+            // 真的完全堵死了，无法到达
+            return TArray<FVector>();
+        }
+    }
+
+    // [双重保险] 确保新的终点是可走的
+    if (!IsTileWalkable(FinalEndX, FinalEndY))
+    {
         return Path;
     }
 
-    // 初始化A*算法容器
-    TArray<FAStarNode*> OpenList;       // 待检查节点
-    TSet<FIntPoint> ClosedList;         // 已检查节点
-    TMap<FIntPoint, FAStarNode*> NodeMap; // 节点缓存（避免重复创建）
 
-    // 创建起点节点
+
+    // A* 算法标准流程 (逻辑不变)
+
+    // 初始化A*算法容器
+    TArray<FAStarNode*> OpenList;
+    TSet<FIntPoint> ClosedList;
+    TMap<FIntPoint, FAStarNode*> NodeMap;
+
+    // 创建起点节点 (注意这里 H 用的是 FinalEndX)
     FAStarNode* StartNode = new FAStarNode(StartX, StartY);
-    StartNode->H = GetHeuristicCost(StartX, StartY, EndX, EndY);
+    StartNode->H = GetHeuristicCost(StartX, StartY, FinalEndX, FinalEndY);
     OpenList.Add(StartNode);
     NodeMap.Add(FIntPoint(StartX, StartY), StartNode);
 
-    // 主循环：处理OpenList中的节点
-    while (OpenList.Num() > 0)  // 修复原代码逻辑错误（!OpenList.Num() == 0 改为 OpenList.Num() > 0）
+    // 主循环
+    while (OpenList.Num() > 0)
     {
-        // 获取当前F值最小的节点
         FAStarNode* CurrentNode = GetLowestFNode(OpenList);
         OpenList.Remove(CurrentNode);
         FIntPoint CurrentPos(CurrentNode->X, CurrentNode->Y);
 
-        // 跳过已处理节点
         if (ClosedList.Contains(CurrentPos))
         {
-            delete CurrentNode;
+            // 如果已经在关闭列表里，不要 delete，因为它在 NodeMap 里还有用
+            // 直接跳过即可
             continue;
         }
         ClosedList.Add(CurrentPos);
 
-        // 到达终点：回溯路径
-        if (CurrentNode->X == EndX && CurrentNode->Y == EndY)
+        // 到达终点 (使用 FinalEndX)
+        if (CurrentNode->X == FinalEndX && CurrentNode->Y == FinalEndY)
         {
             TArray<FIntPoint> RawPath;
             FAStarNode* TempNode = CurrentNode;
@@ -166,7 +198,6 @@ TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVect
                 TempNode = TempNode->Parent;
             }
 
-            // 优化路径并转换为世界坐标
             OptimizePath(RawPath);
             for (const FIntPoint& Point : RawPath)
             {
@@ -174,19 +205,16 @@ TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVect
             }
 
             // 清理内存
-            for (auto& Pair : NodeMap)
-                delete Pair.Value;
+            for (auto& Pair : NodeMap) delete Pair.Value;
             return Path;
         }
 
-        // 处理邻居节点
+        // 处理邻居
         TArray<FIntPoint> Neighbors = GetNeighborNodes(CurrentNode->X, CurrentNode->Y);
         for (const FIntPoint& NeighborPos : Neighbors)
         {
-            if (ClosedList.Contains(NeighborPos))
-                continue;
+            if (ClosedList.Contains(NeighborPos)) continue;
 
-            // 计算移动成本（基础距离 * 格子权重）
             const float MoveCost = FVector::Dist(
                 GridToWorld(CurrentNode->X, CurrentNode->Y),
                 GridToWorld(NeighborPos.X, NeighborPos.Y)
@@ -195,12 +223,10 @@ TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVect
             const float NewGCost = CurrentNode->G + MoveCost;
             FAStarNode* NeighborNode = nullptr;
 
-            // 复用已有节点或创建新节点
             if (NodeMap.Contains(NeighborPos))
             {
                 NeighborNode = NodeMap[NeighborPos];
-                if (NewGCost >= NeighborNode->G)
-                    continue;  // 新路径成本更高，跳过
+                if (NewGCost >= NeighborNode->G) continue;
             }
             else
             {
@@ -208,12 +234,10 @@ TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVect
                 NodeMap.Add(NeighborPos, NeighborNode);
             }
 
-            // 更新节点信息
             NeighborNode->G = NewGCost;
-            NeighborNode->H = GetHeuristicCost(NeighborPos.X, NeighborPos.Y, EndX, EndY);
+            NeighborNode->H = GetHeuristicCost(NeighborPos.X, NeighborPos.Y, FinalEndX, FinalEndY);
             NeighborNode->Parent = CurrentNode;
 
-            // 添加到OpenList（避免重复添加）
             if (!OpenList.Contains(NeighborNode))
             {
                 OpenList.Add(NeighborNode);
@@ -221,10 +245,8 @@ TArray<FVector> AGridManager::FindPath(const FVector& StartWorldLoc, const FVect
         }
     }
 
-    // 未找到路径：清理内存
-    for (auto& Pair : NodeMap)
-        delete Pair.Value;
-    UE_LOG(LogTemp, Warning, TEXT("No path found"));
+    // 清理内存
+    for (auto& Pair : NodeMap) delete Pair.Value;
     return Path;
 }
 
