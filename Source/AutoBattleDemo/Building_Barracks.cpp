@@ -136,3 +136,25 @@ void ABuilding_Barracks::ReleaseAllUnits()
         }
     }
 }
+
+TArray<EUnitType> ABuilding_Barracks::GetStoredUnitTypes() const
+{
+    TArray<EUnitType> Types;
+    for (const FUnitSaveData& UnitData : StoredUnits)
+    {
+        Types.Add(UnitData.UnitType);
+    }
+    return Types;
+}
+
+void ABuilding_Barracks::RestoreStoredUnits(const TArray<EUnitType>& InUnits)
+{
+    StoredUnits.Empty();
+    for (const EUnitType& Type : InUnits)
+    {
+        FUnitSaveData Data;
+        Data.UnitType = Type;
+        // GridX/Y 不重要，因为是在仓库里
+        StoredUnits.Add(Data);
+    }
+}

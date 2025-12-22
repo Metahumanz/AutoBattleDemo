@@ -23,6 +23,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Barracks")
         void ReleaseAllUnits();
 
+    // 获取所有库存兵种类型 (用于存档)
+    TArray<EUnitType> GetStoredUnitTypes() const;
+
+    // 从存档恢复库存 (用于读档)
+    void RestoreStoredUnits(const TArray<EUnitType>& InUnits);
+
 protected:
     // 提供的额外人口上限
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")

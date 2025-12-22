@@ -6,6 +6,7 @@
 #include "RTSGameInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
+#include "Building_Barracks.h"
 #include "Components/CapsuleComponent.h"
 #include "LevelDataAsset.h" 
 
@@ -261,6 +262,16 @@ void ARTSGameMode::SaveBaseLayout()
             Data.GridY = Building->GridY;
             Data.Level = Building->BuildingLevel;
 
+            // 如果是兵营，保存里面的兵
+            if (Building->BuildingType == EBuildingType::Barracks)
+            {
+                // Cast 一下才能调子类函数
+                if (ABuilding_Barracks* Barracks = Cast<ABuilding_Barracks>(Building))
+                {
+                    Data.StoredUnitTypes = Barracks->GetStoredUnitTypes();
+                }
+            }
+
             GI->SavedBuildings.Add(Data);
         }
     }
@@ -275,53 +286,81 @@ void ARTSGameMode::LoadAndSpawnBase()
 {
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
     // 如果没有存过档(第一次玩)，或者没有 GridManager，就啥也不做
-    if (!GI || !GridManager || !GI->bHasSavedBase) return;
+    if (!GI || !GridManager) return;
 
-    // 遍历存档
-    for (const FBuildingSaveData& Data : GI->SavedBuildings)
+    // 检查是否有存档，如果没有，或者是初次游玩，也要保证有 HQ
+    bool bHasHQ = false;
+
+    if (GI->bHasSavedBase)
     {
-        // 1. 找蓝图
-        TSubclassOf<ABaseBuilding> SpawnClass = nullptr;
-        switch (Data.BuildingType)
+        for (const FBuildingSaveData& Data : GI->SavedBuildings)
         {
-            case EBuildingType::Defense:      SpawnClass = DefenseTowerClass; break;
-            case EBuildingType::GoldMine:     SpawnClass = GoldMineClass;     break;
-            case EBuildingType::ElixirPump:   SpawnClass = ElixirPumpClass;   break;
-            case EBuildingType::Wall:         SpawnClass = WallClass;         break;
-            case EBuildingType::Barracks:     SpawnClass = BarracksClass;     break;
-            case EBuildingType::Headquarters: SpawnClass = HQClass;           break;
+            if (Data.BuildingType == EBuildingType::Headquarters) bHasHQ = true;
+
+            TSubclassOf<ABaseBuilding> SpawnClass = nullptr;
+            switch (Data.BuildingType)
+            {
+                case EBuildingType::Defense:      SpawnClass = DefenseTowerClass; break;
+                case EBuildingType::GoldMine:     SpawnClass = GoldMineClass;     break;
+                case EBuildingType::ElixirPump:   SpawnClass = ElixirPumpClass;   break;
+                case EBuildingType::Wall:         SpawnClass = WallClass;         break;
+                case EBuildingType::Barracks:     SpawnClass = BarracksClass;     break;
+                case EBuildingType::Headquarters: SpawnClass = HQClass;           break;
+            }
+
+
+            if (!SpawnClass) continue;
+
+            // 2. 算高度 (用之前的通用逻辑)
+            float SpawnZOffset = 0.0f;
+            ABaseBuilding* DefaultBuilding = SpawnClass->GetDefaultObject<ABaseBuilding>();
+            if (DefaultBuilding)
+            {
+                FVector Origin, BoxExtent;
+                DefaultBuilding->GetActorBounds(true, Origin, BoxExtent);
+                SpawnZOffset = BoxExtent.Z;
+            }
+
+            FVector SpawnLoc = GridManager->GridToWorld(Data.GridX, Data.GridY);
+            SpawnLoc.Z += SpawnZOffset;
+
+            // 3. 生成
+            FActorSpawnParameters Params;
+            Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+            ABaseBuilding* NewBuilding = GetWorld()->SpawnActor<ABaseBuilding>(SpawnClass, SpawnLoc, FRotator::ZeroRotator, Params);
+            if (NewBuilding)
+            {
+                NewBuilding->TeamID = ETeam::Player;
+                NewBuilding->GridX = Data.GridX;
+                NewBuilding->GridY = Data.GridY;
+                NewBuilding->BuildingLevel = Data.Level; // 恢复等级
+
+                // 恢复阻挡
+                GridManager->SetTileBlocked(Data.GridX, Data.GridY, true);
+
+                // 如果是兵营，恢复库存
+                if (Data.BuildingType == EBuildingType::Barracks)
+                {
+                    if (ABuilding_Barracks* Barracks = Cast<ABuilding_Barracks>(NewBuilding))
+                    {
+                        Barracks->RestoreStoredUnits(Data.StoredUnitTypes);
+                    }
+                }
+            }
         }
+    }
 
+    // 保底逻辑：如果存档里没 HQ (或者第一次玩)，强制在 (0,0) 生一个 ---
+    if (!bHasHQ)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No HQ found in save data. Spawning default HQ at (0,0)."));
 
-        if (!SpawnClass) continue;
-
-        // 2. 算高度 (用之前的通用逻辑)
-        float SpawnZOffset = 0.0f;
-        ABaseBuilding* DefaultBuilding = SpawnClass->GetDefaultObject<ABaseBuilding>();
-        if (DefaultBuilding)
+        // 确保 (0,0) 没被占 (虽然 HQ 权力最大，但还是检查一下好)
+        // 实际上 HQ 应该最先生成。
+        if (HQClass)
         {
-            FVector Origin, BoxExtent;
-            DefaultBuilding->GetActorBounds(true, Origin, BoxExtent);
-            SpawnZOffset = BoxExtent.Z;
-        }
-
-        FVector SpawnLoc = GridManager->GridToWorld(Data.GridX, Data.GridY);
-        SpawnLoc.Z += SpawnZOffset;
-
-        // 3. 生成
-        FActorSpawnParameters Params;
-        Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-        ABaseBuilding* NewBuilding = GetWorld()->SpawnActor<ABaseBuilding>(SpawnClass, SpawnLoc, FRotator::ZeroRotator, Params);
-        if (NewBuilding)
-        {
-            NewBuilding->TeamID = ETeam::Player;
-            NewBuilding->GridX = Data.GridX;
-            NewBuilding->GridY = Data.GridY;
-            NewBuilding->BuildingLevel = Data.Level; // 恢复等级
-
-            // 恢复阻挡
-            GridManager->SetTileBlocked(Data.GridX, Data.GridY, true);
+            TryBuildBuilding(EBuildingType::Headquarters, 0, 0, 0); // Cost设为0免费造
         }
     }
 
@@ -429,61 +468,72 @@ void ARTSGameMode::LoadAndSpawnUnits()
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
     if (!GI || !GridManager) return;
 
+    FString MapName = GetWorld()->GetMapName();
+    bool bIsHomeBase = !MapName.Contains("BattleField", ESearchCase::IgnoreCase);
+
     for (const FUnitSaveData& Data : GI->PlayerArmy)
     {
         // 1. 匹配蓝图
         TSubclassOf<ABaseUnit> SpawnClass = nullptr;
         switch (Data.UnitType)
         {
-        case EUnitType::Barbarian:  SpawnClass = BarbarianClass; break;
-        case EUnitType::Archer:     SpawnClass = ArcherClass;    break;
-        case EUnitType::Giant:      SpawnClass = GiantClass;     break;
-        case EUnitType::Bomber:     SpawnClass = BomberClass;    break;
+            case EUnitType::Barbarian:  SpawnClass = BarbarianClass; break;
+            case EUnitType::Archer:     SpawnClass = ArcherClass;    break;
+            case EUnitType::Giant:      SpawnClass = GiantClass;     break;
+            case EUnitType::Bomber:     SpawnClass = BomberClass;    break;
         }
 
         if (!SpawnClass) continue;
 
-        // 2. [核心算法] 寻找可用位置 (Spiral Search / 螺旋搜索)
-        // 也就是：如果目标格子堵了，就找它隔壁的，再找隔壁的隔壁...
-        int32 FinalX = Data.GridX;
-        int32 FinalY = Data.GridY;
-        bool bFoundSpot = false;
+        // --- [修改] 坐标计算逻辑 ---
+        int32 TargetX, TargetY;
 
-        // 检查原位置
+        if (bIsHomeBase)
+        {
+            // 如果在基地，忽略 Data 里的坐标，强制围绕 (0,0) 寻找空位
+            TargetX = 0;
+            TargetY = 0;
+        }
+        else
+        {
+            // 如果在战场，使用保存的坐标 (或者你可以改为在战场出生点生成)
+            TargetX = Data.GridX;
+            TargetY = Data.GridY;
+        }
+
+        // --- 螺旋搜索空位 (通用) ---
+        bool bFoundSpot = false;
+        int32 FinalX = TargetX;
+        int32 FinalY = TargetY;
+
+        // 检查原点
         if (GridManager->IsTileWalkable(FinalX, FinalY))
         {
             bFoundSpot = true;
         }
         else
         {
-            // 原位置堵了，开始向外搜索 (半径 1 到 5)
-            // 这种暴力搜索在 20x20 的地图上性能消耗可以忽略不计
-            for (int32 Radius = 1; Radius <= 5; ++Radius)
+            // 向外扩散搜索
+            for (int32 Radius = 1; Radius <= 10; ++Radius) // 半径大一点，防止兵多挤不下
             {
-                for (int32 x = Data.GridX - Radius; x <= Data.GridX + Radius; ++x)
+                for (int32 x = TargetX - Radius; x <= TargetX + Radius; ++x)
                 {
-                    for (int32 y = Data.GridY - Radius; y <= Data.GridY + Radius; ++y)
+                    for (int32 y = TargetY - Radius; y <= TargetY + Radius; ++y)
                     {
-                        // 找到一个空位！
                         if (GridManager->IsTileWalkable(x, y))
                         {
                             FinalX = x;
                             FinalY = y;
                             bFoundSpot = true;
-                            goto FoundLabel; // 跳出所有循环
+                            goto FoundLabel;
                         }
                     }
                 }
             }
         }
-    FoundLabel:; // goto 跳转点
+        FoundLabel:;
 
-    // 如果方圆 5 格都堵死了，那就不生成这个兵了 (或者你可以选择重叠生成)
-        if (!bFoundSpot)
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Unit dropped: No space found near [%d, %d]"), Data.GridX, Data.GridY);
-            continue;
-        }
+        if (!bFoundSpot) continue; // 没地儿了，丢弃
 
         // 3. 计算世界坐标
         FVector SpawnLoc = GridManager->GridToWorld(FinalX, FinalY);
@@ -514,7 +564,7 @@ void ARTSGameMode::LoadAndSpawnUnits()
         {
             NewUnit->TeamID = ETeam::Player;
             // 锁定新的格子
-            GridManager->SetTileBlocked(FinalX, FinalY, true);
+            // GridManager->SetTileBlocked(FinalX, FinalY, true);
         }
     }
 }

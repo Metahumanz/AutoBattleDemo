@@ -92,4 +92,8 @@ struct FBuildingSaveData
 
     UPROPERTY(BlueprintReadWrite)
         int32 Level; // 建筑等级
+
+    // 兵营里的库存
+    UPROPERTY(BlueprintReadWrite)
+        TArray<EUnitType> StoredUnitTypes;
 };

@@ -25,6 +25,9 @@ ARTSPlayerController::ARTSPlayerController()
     bIsRemoving = false;
     PendingUnitType = EUnitType::Barbarian;
     PendingBuildingType = EBuildingType::None;
+
+    SelectedBuilding = nullptr; // 初始化
+    SelectedUnit = nullptr;     // 初始化
 }
 
 void ARTSPlayerController::BeginPlay()
@@ -262,8 +265,18 @@ void ARTSPlayerController::HandleRemoveMode(AActor* HitActor, AGridManager* Grid
     // 只能删玩家自己的东西
     if (Entity && Entity->TeamID == ETeam::Player)
     {
-        // 解锁网格：建筑
+        // 检查是否是 HQ
         ABaseBuilding* Building = Cast<ABaseBuilding>(HitActor);
+        if (Building)
+        {
+            if (Building->BuildingType == EBuildingType::Headquarters)
+            {
+                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Cannot Remove HQ!"));
+                return; // 直接返回，不执行销毁
+            }
+        }
+
+        // 解锁网格：建筑
         if (Building && GridManager)
         {
             GridManager->SetTileBlocked(Building->GridX, Building->GridY, false);
@@ -274,11 +287,11 @@ void ARTSPlayerController::HandleRemoveMode(AActor* HitActor, AGridManager* Grid
         if (Unit && GridManager)
         {
             // 解锁网格：士兵
-            int32 UX, UY;
+            /*int32 UX, UY;
             if (GridManager->WorldToGrid(Unit->GetActorLocation(), UX, UY))
             {
                 GridManager->SetTileBlocked(UX, UY, false);
-            }
+            }*/
 
             // 返还人口 (固定 -1)
             URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
@@ -463,7 +476,7 @@ void ARTSPlayerController::UpdatePlacementGhost()
                 // 1. 基础检查：格子是否被阻挡
                 bool bTileWalkable = GridManager->IsTileWalkable(X, Y);
 
-                // 2. 区域检查：是否在 X < 8 区域 (只针对造兵)
+                // 2. 区域检查：是否在 X < 8 区域
                 bool bInValidZone = true;
                 if (bIsPlacingUnit || bIsPlacingBuilding)
                 {
