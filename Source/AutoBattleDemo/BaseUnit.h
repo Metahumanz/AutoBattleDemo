@@ -90,4 +90,16 @@ protected:
     // 重新寻路时间
     float RetargetTimer;
 
+    // --- 攻击动画变量 ---
+    bool bIsLunging; // 是否正在执行冲撞动作
+    float LungeTimer; // 动画计时器
+    FVector OriginalMeshOffset; // 记录模型原本的位置(比如Z=-90)
+
+    // 冲撞参数 (可以在蓝图调整)
+    UPROPERTY(EditAnywhere, Category = "Visuals")
+        float LungeDistance = 50.0f; // 向前冲多远
+
+    UPROPERTY(EditAnywhere, Category = "Visuals")
+        float LungeSpeed = 10.0f; // 冲多快
+
 };

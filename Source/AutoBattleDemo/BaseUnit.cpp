@@ -60,13 +60,20 @@ void ABaseUnit::BeginPlay()
         // UE_LOG(LogTemp, Error, TEXT("[Unit] %s cannot find GridManager!"), *GetName());
     }
 
-    // 2. [新增] 自动激活逻辑 (针对手动放置在战场的敌人)
+    // 2. 自动激活逻辑 (针对手动放置在战场的敌人)
     // 如果我是敌人，且地图是战场，那我就不需要 GameMode 来激活我，我自己激活自己
     FString MapName = GetWorld()->GetMapName();
     if (MapName.Contains("BattleField") && TeamID == ETeam::Enemy)
     {
         SetUnitActive(true);
     }
+
+    // 记录模型的初始位置（攻击冲撞动画用）
+    if (MeshComp)
+    {
+        OriginalMeshOffset = MeshComp->GetRelativeLocation();
+    }
+    bIsLunging = false;
 }
 
 void ABaseUnit::Tick(float DeltaTime)
@@ -184,6 +191,29 @@ void ABaseUnit::Tick(float DeltaTime)
             {
                 AddActorWorldOffset(SeparationForce * 10.0f * DeltaTime);
             }
+        }
+    }
+
+    // --- 处理攻击动画 ---
+    if (bIsLunging && MeshComp)
+    {
+        LungeTimer += DeltaTime * LungeSpeed;
+
+        // 使用 Sin 函数模拟：0 -> 1 -> 0 (出去再回来)
+        // PI 是半个圆周，正好是从 0 到 峰值 再回 0
+        float Alpha = FMath::Sin(LungeTimer);
+
+        if (LungeTimer >= PI) // 动画结束 (Sin(PI) = 0)
+        {
+            bIsLunging = false;
+            LungeTimer = 0.0f;
+            MeshComp->SetRelativeLocation(OriginalMeshOffset); // 归位
+        }
+        else
+        {
+            // 向前移动 (X轴是前方)
+            FVector ForwardOffset = FVector(Alpha * LungeDistance, 0.f, 0.f);
+            MeshComp->SetRelativeLocation(OriginalMeshOffset + ForwardOffset);
         }
     }
 }
@@ -396,6 +426,10 @@ void ABaseUnit::PerformAttack()
             NewRotation.Pitch = 0;
             NewRotation.Roll = 0;
             SetActorRotation(NewRotation);
+
+            // 触发冲撞动画
+            bIsLunging = true;
+            LungeTimer = 0.0f;
         }
 
         UE_LOG(LogTemp, Log, TEXT("[Unit] %s attacked %s for %f damage!"),
