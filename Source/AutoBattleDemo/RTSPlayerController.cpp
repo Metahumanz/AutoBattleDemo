@@ -557,4 +557,36 @@ void ARTSPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
     InputComponent->BindAction("LeftClick", IE_Pressed, this, &ARTSPlayerController::HandleLeftClick);
+
+    // 绑定 Esc
+    InputComponent->BindAction("PauseMenu", IE_Pressed, this, &ARTSPlayerController::OnPressEsc);
+}
+
+void ARTSPlayerController::OnPressEsc()
+{
+    // 1. 优先尝试取消当前操作 (造兵/移除/选中)
+    // 如果 CancelCurrentAction 返回 true，说明刚才处于放置模式，现在取消了，逻辑结束
+    if (CancelCurrentAction())
+    {
+        return;
+    }
+
+    // 2. 还有选中单位吗？如果有，取消选中
+    if (SelectedUnit || SelectedBuilding)
+    {
+        SelectedUnit = nullptr;
+        SelectedBuilding = nullptr;
+        // 顺便通知 UI 隐藏升级按钮 (Tick 里会自动处理，或者你可以在这里发广播)
+        if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Cyan, TEXT("Selection Cleared"));
+        return;
+    }
+
+    // 3. 如果当前没事干 (Idle)，则执行 "返回主菜单"
+    // 回主菜单前要不要自动保存一下基地
+    
+    ARTSGameMode* GM = Cast<ARTSGameMode>(GetWorld()->GetAuthGameMode());
+    if (GM) GM->SaveBaseLayout();
+    
+
+    UGameplayStatics::OpenLevel(this, FName("MainMenu"));
 }
