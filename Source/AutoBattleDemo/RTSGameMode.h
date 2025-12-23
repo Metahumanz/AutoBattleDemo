@@ -64,6 +64,13 @@ public:
     // 在指定位置强制生成单位 (不扣资源，供兵营释放使用)
     bool SpawnUnitAt(EUnitType Type, int32 GridX, int32 GridY);
 
+    // 获取当前玩家拥有的最高兵营等级 (如果没有兵营返回 0)
+    UFUNCTION(BlueprintCallable, Category = "GameFlow")
+        int32 GetCurrentTechLevel();
+
+    // 检查是否满足造兵的科技要求
+    bool CheckUnitTechRequirement(EUnitType Type);
+
 protected:
     UPROPERTY(BlueprintReadOnly, Category = "GameFlow")
         EGameState CurrentState;

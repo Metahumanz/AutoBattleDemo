@@ -8,6 +8,7 @@
 #include "EngineUtils.h"
 #include "Building_Barracks.h"
 #include "Components/CapsuleComponent.h"
+#include "Building_Barracks.h"
 #include "LevelDataAsset.h" 
 
 ARTSGameMode::ARTSGameMode()
@@ -89,6 +90,13 @@ void ARTSGameMode::BeginPlay()
 bool ARTSGameMode::TryBuyUnit(EUnitType Type, int32 Cost, int32 GridX, int32 GridY)
 {
     if (CurrentState != EGameState::Preparation) return false;
+
+    // 兵营等级检查
+    // 如果不满足要求，直接拒绝，不扣钱，不生成
+    if (!CheckUnitTechRequirement(Type))
+    {
+        return false;
+    }
 
     URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
     if (!GI) return false; // 安全检查
@@ -765,4 +773,65 @@ bool ARTSGameMode::TryUpgradeBuilding(ABaseBuilding* BuildingToUpgrade)
 
     if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Upgrade Successful!"));
     return true;
+}
+
+int32 ARTSGameMode::GetCurrentTechLevel()
+{
+    int32 MaxLevel = 0;
+
+    // 遍历所有兵营
+    for (TActorIterator<ABuilding_Barracks> It(GetWorld()); It; ++It)
+    {
+        ABuilding_Barracks* Barracks = *It;
+        // 必须是玩家的，且活着的
+        if (Barracks && Barracks->TeamID == ETeam::Player && Barracks->CurrentHealth > 0)
+        {
+            // 找到等级最高的那个
+            if (Barracks->BuildingLevel > MaxLevel)
+            {
+                MaxLevel = Barracks->BuildingLevel;
+            }
+        }
+    }
+    return MaxLevel;
+}
+
+bool ARTSGameMode::CheckUnitTechRequirement(EUnitType Type)
+{
+    int32 CurrentLevel = GetCurrentTechLevel();
+    int32 RequiredLevel = 99; // 默认很高，防止漏洞
+
+    switch (Type)
+    {
+    case EUnitType::Barbarian:  RequiredLevel = 1; break; // 只要有兵营(Lv1)就能造
+    case EUnitType::Archer:     RequiredLevel = 2; break;
+    case EUnitType::Giant:      RequiredLevel = 3; break;
+    case EUnitType::Bomber:     RequiredLevel = 4; break;
+        // 如果有其他兵种，继续加 case
+    }
+
+    if (CurrentLevel >= RequiredLevel)
+    {
+        return true;
+    }
+    else
+    {
+        // 打印提示
+        FString UnitName = "";
+        const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUnitType"), true);
+        if (EnumPtr) UnitName = EnumPtr->GetNameStringByValue((int64)Type);
+
+        if (CurrentLevel == 0)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Build Failed: No Barracks found! Build a Barracks first."));
+            if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, TEXT("Need Barracks!"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Build Failed: Barracks Level too low for %s. Need Lv%d, Have Lv%d"), *UnitName, RequiredLevel, CurrentLevel);
+            if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red, FString::Printf(TEXT("Need Barracks Lv.%d"), RequiredLevel));
+        }
+
+        return false;
+    }
 }

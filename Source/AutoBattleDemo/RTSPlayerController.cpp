@@ -102,6 +102,18 @@ void ARTSPlayerController::Tick(float DeltaTime)
 
 void ARTSPlayerController::OnSelectUnitToPlace(EUnitType UnitType)
 {
+    // 先问问裁判，我有资格造这个兵吗？
+    ARTSGameMode* GM = Cast<ARTSGameMode>(GetWorld()->GetAuthGameMode());
+    if (GM)
+    {
+        if (!GM->CheckUnitTechRequirement(UnitType))
+        {
+            // 如果不满足要求，直接退出，不进入放置模式
+            // CheckUnitTechRequirement 内部已经打印了红字提示
+            return;
+        }
+    }
+
     PendingUnitType = UnitType;
     bIsPlacingUnit = true;
     bIsPlacingBuilding = false;
