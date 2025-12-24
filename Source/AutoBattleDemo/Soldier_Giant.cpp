@@ -39,9 +39,7 @@ AActor* ASoldier_Giant::FindClosestTarget()
         // 过滤：必须是敌人，且活着，且可被攻击
         if (Building && Building->TeamID != this->TeamID && Building->CurrentHealth > 0 && Building->bIsTargetable)
         {
-            // -------------------------------------------------------------
-            // [核心] 计算表面距离 (Surface Distance)
-            // -------------------------------------------------------------
+            // 计算表面距离 (Surface Distance)
             float DistToSurface = FLT_MAX;
             UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Building->GetRootComponent());
             if (!Prim) Prim = Building->FindComponentByClass<UStaticMeshComponent>();
@@ -57,8 +55,7 @@ AActor* ASoldier_Giant::FindClosestTarget()
             {
                 DistToSurface = FVector::Dist(GetActorLocation(), Building->GetActorLocation());
             }
-            // -------------------------------------------------------------
-
+            
             // 判断类型
             if (Building->IsA(ABuilding_Defense::StaticClass()))
             {

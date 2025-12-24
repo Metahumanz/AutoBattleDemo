@@ -693,6 +693,16 @@ bool ARTSGameMode::SpawnUnitAt(EUnitType Type, int32 GridX, int32 GridY)
 
 void ARTSGameMode::CheckWinCondition()
 {
+    // 添加防护：如果已经在处理胜利/失败，直接返回
+    static bool bIsProcessing = false;
+    if (bIsProcessing) return;
+
+    // 或者检查当前状态，如果已经是胜利或失败状态，不再处理
+    if (CurrentState == EGameState::Victory || CurrentState == EGameState::Defeat)
+    {
+        return;
+    }
+
     // 统计场上敌人的大本营
     TArray<AActor*> EnemyHQs;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseBuilding::StaticClass(), EnemyHQs);
@@ -701,7 +711,9 @@ void ARTSGameMode::CheckWinCondition()
     for (AActor* Actor : EnemyHQs)
     {
         ABaseBuilding* Building = Cast<ABaseBuilding>(Actor);
-        // 必须是敌人，必须是大本营，必须活着
+        // 增强有效性检查
+        if (!IsValid(Building) || Building->IsPendingKill()) continue;
+
         if (Building && Building->TeamID == ETeam::Enemy &&
             Building->BuildingType == EBuildingType::Headquarters &&
             Building->CurrentHealth > 0)
@@ -711,12 +723,16 @@ void ARTSGameMode::CheckWinCondition()
     }
 
     // 胜利条件
-    if (EnemyHQCount == 0)
+    if (EnemyHQCount == 0 && CurrentState != EGameState::Victory)
     {
+        bIsProcessing = true; // 防止重复进入
+
         UE_LOG(LogTemp, Warning, TEXT("VICTORY! Enemy HQ Destroyed!"));
         if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green, TEXT("VICTORY!"));
 
-        // [奖励逻辑] 在这里给 GameInstance 加钱
+        CurrentState = EGameState::Victory; // 立即更新状态
+
+        // [奖励逻辑]
         URTSGameInstance* GI = Cast<URTSGameInstance>(GetGameInstance());
         if (GI)
         {
@@ -724,17 +740,18 @@ void ARTSGameMode::CheckWinCondition()
             GI->PlayerElixir += 1000;
         }
 
-        // 3秒后回城 (使用 Timer)
+        // 3秒后回城
         FTimerHandle TimerHandle;
         GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]()
             {
+                bIsProcessing = false; // 重置处理标志
                 ReturnToBase();
             }, 3.0f, false);
 
-        return; // 结束检查
+        return;
     }
 
-    // 2. 统计场上还剩多少【玩家的兵】
+    // 统计场上还剩多少【玩家的兵】
     TArray<AActor*> PlayerUnits;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABaseUnit::StaticClass(), PlayerUnits);
 
@@ -742,6 +759,8 @@ void ARTSGameMode::CheckWinCondition()
     for (AActor* Actor : PlayerUnits)
     {
         ABaseUnit* Unit = Cast<ABaseUnit>(Actor);
+        if (!IsValid(Unit) || Unit->IsPendingKill()) continue;
+
         if (Unit && Unit->TeamID == ETeam::Player && Unit->CurrentHealth > 0)
         {
             PlayerUnitCount++;
@@ -750,15 +769,20 @@ void ARTSGameMode::CheckWinCondition()
 
     // --- 失败条件 ---
     // 如果玩家没兵了，且没赢
-    if (PlayerUnitCount == 0)
+    if (PlayerUnitCount == 0 && CurrentState != EGameState::Defeat && CurrentState != EGameState::Victory)
     {
+        bIsProcessing = true; // 防止重复进入
+
         UE_LOG(LogTemp, Warning, TEXT("DEFEAT! All units lost!"));
         if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Red, TEXT("DEFEAT!"));
+
+        CurrentState = EGameState::Defeat; // 立即更新状态
 
         // 3秒后回城
         FTimerHandle TimerHandle;
         GetWorld()->GetTimerManager().SetTimer(TimerHandle, [this]()
             {
+                bIsProcessing = false; // 重置处理标志
                 ReturnToBase();
             }, 3.0f, false);
     }

@@ -90,9 +90,7 @@ void ABaseUnit::Tick(float DeltaTime)
     GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Cyan, StateName);*/
     // ⬆️⬆️⬆️ [调试] ⬆️⬆️⬆️
 
-    // =============================================================
     // 1. 状态维护 (State Check)
-    // =============================================================
     switch (CurrentState)
     {
     case EUnitState::Idle:
@@ -153,9 +151,7 @@ void ABaseUnit::Tick(float DeltaTime)
         break;
     }
 
-    // =============================================================
-    // 2. 移动力学计算 (Steering) - 核心修复区
-    // =============================================================
+    // 2. 移动计算
 
     FVector FinalVelocity = FVector::ZeroVector;
     FVector CurrentLoc = GetActorLocation();
@@ -271,7 +267,7 @@ void ABaseUnit::Tick(float DeltaTime)
         }
         else
         {
-            FVector ForwardOffset = FVector(Alpha * 50.0f, 0.f, 0.f); // 冲 50cm
+            FVector ForwardOffset = FVector(Alpha * 150.0f, 0.f, 0.f); // 冲 150cm
             MeshComp->SetRelativeLocation(OriginalMeshOffset + ForwardOffset);
         }
     }
@@ -368,13 +364,30 @@ void ABaseUnit::RequestPathToTarget()
 
 void ABaseUnit::PerformAttack()
 {
+    // 更强的目标有效性检查
+    if (!IsValid(CurrentTarget) || CurrentTarget->IsPendingKill())
+    {
+        CurrentTarget = nullptr;
+        CurrentState = EUnitState::Idle;
+        return;
+    }
+
+    // 转换为具体类型进行更严格的检查
+    ABaseGameEntity* TargetEntity = Cast<ABaseGameEntity>(CurrentTarget);
+    if (!TargetEntity || TargetEntity->CurrentHealth <= 0.0f || !TargetEntity->bIsTargetable)
+    {
+        CurrentTarget = nullptr;
+        CurrentState = EUnitState::Idle;
+        return;
+    }
+
     if (!CurrentTarget)
     {
         CurrentState = EUnitState::Idle;
         return;
     }
 
-    // 攻击时的距离检查也要用表面距离
+    // 攻击时的距离检查也用表面距离
     float DistToSurface = FLT_MAX;
     UPrimitiveComponent* TargetPrim = Cast<UPrimitiveComponent>(CurrentTarget->GetRootComponent());
     if (!TargetPrim) TargetPrim = CurrentTarget->FindComponentByClass<UStaticMeshComponent>();

@@ -42,9 +42,7 @@ AActor* ASoldier_Bomber::FindClosestTarget()
 
         if (Building && Building->TeamID != this->TeamID && Building->CurrentHealth > 0 && Building->bIsTargetable)
         {
-            // -------------------------------------------------------------
-            // [核心] 计算表面距离
-            // -------------------------------------------------------------
+            // 计算表面距离
             float DistToSurface = FLT_MAX;
             UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(Building->GetRootComponent());
             if (!Prim) Prim = Building->FindComponentByClass<UStaticMeshComponent>();
@@ -60,8 +58,7 @@ AActor* ASoldier_Bomber::FindClosestTarget()
             {
                 DistToSurface = FVector::Dist(GetActorLocation(), Building->GetActorLocation());
             }
-            // -------------------------------------------------------------
-
+            
             // 优先找墙
             if (Building->BuildingType == EBuildingType::Wall)
             {
@@ -88,7 +85,7 @@ AActor* ASoldier_Bomber::FindClosestTarget()
     return ClosestOther;
 }
 
-// 重写：执行自爆前的判定
+// 执行自爆前的判定
 void ASoldier_Bomber::PerformAttack()
 {
     if (!CurrentTarget)
@@ -105,9 +102,7 @@ void ASoldier_Bomber::PerformAttack()
         return;
     }
 
-    // -------------------------------------------------------------
-    // [核心] 再次计算表面距离 (防止还没走到就炸了)
-    // -------------------------------------------------------------
+    // 再次计算表面距离 (防止还没走到就炸了)
     float DistToSurface = FLT_MAX;
     UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(CurrentTarget->GetRootComponent());
     if (!Prim) Prim = CurrentTarget->FindComponentByClass<UStaticMeshComponent>();
@@ -123,8 +118,7 @@ void ASoldier_Bomber::PerformAttack()
     {
         DistToSurface = FVector::Dist(GetActorLocation(), CurrentTarget->GetActorLocation());
     }
-    // -------------------------------------------------------------
-
+    
     // 如果距离还不够近 (加一点点缓冲)，继续走
     if (DistToSurface > (AttackRange + 20.0f))
     {
@@ -171,9 +165,9 @@ void ASoldier_Bomber::SuicideAttack()
                 float HealthBefore = Building->CurrentHealth;
 
                 FDamageEvent DamageEvent;
-                // 对墙造成 10倍 伤害 (炸弹人特性)
+                // 对墙造成 5 倍 伤害 (炸弹人特性)
                 float FinalDamage = ExplosionDamage;
-                if (Building->BuildingType == EBuildingType::Wall) FinalDamage *= 10.0f;
+                if (Building->BuildingType == EBuildingType::Wall) FinalDamage *= 5.0f;
 
                 Building->TakeDamage(FinalDamage, DamageEvent, nullptr, this);
                 HitCount++;

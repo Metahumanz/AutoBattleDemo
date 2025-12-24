@@ -7,7 +7,8 @@ ASoldier_Barbarian::ASoldier_Barbarian()
 
     // Ò°ÂùÈËÊôĞÔ
     MaxHealth = 150.0f;
-    AttackRange = 50.0f;
+    AttackRange = 150.0f;
+
     Damage = 15.0f;
     MoveSpeed = 250.0f;
     AttackInterval = 1.0f;
