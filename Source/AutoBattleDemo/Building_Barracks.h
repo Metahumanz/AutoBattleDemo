@@ -18,7 +18,7 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
     UFUNCTION(BlueprintCallable, Category = "Barracks")
-        void StoreUnit(class ABaseUnit* UnitToStore);
+        bool StoreUnit(class ABaseUnit* UnitToStore);
 
     UFUNCTION(BlueprintCallable, Category = "Barracks")
         void ReleaseAllUnits();

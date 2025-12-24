@@ -241,15 +241,26 @@ void ARTSPlayerController::HandlePlacementMode(const FHitResult& Hit, AGridManag
         ABuilding_Barracks* Barracks = Cast<ABuilding_Barracks>(HitActor);
         if (Barracks && Barracks->TeamID == ETeam::Player)
         {
-            // 直接存入兵营
-            Barracks->StoreUnit(UnitBeingMoved);
+            // 尝试存入兵营
+            bool bStored = Barracks->StoreUnit(UnitBeingMoved);
 
-            // 清理状态
-            UnitBeingMoved = nullptr; // 已经交给兵营销毁了，指针置空
-            bIsPlacingUnit = false;
-            if (PreviewGhostActor) PreviewGhostActor->SetActorHiddenInGame(true);
+            if (bStored)
+            {
+                // --- 成功：清理状态 ---
+                UnitBeingMoved = nullptr;
+                bIsPlacingUnit = false;
+                if (PreviewGhostActor) PreviewGhostActor->SetActorHiddenInGame(true);
 
-            if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Moved into Barracks!"));
+                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Green, TEXT("Moved into Barracks!"));
+            }
+            else
+            {
+                // --- 失败 (满了)：还原士兵 ---
+                // 直接调用取消逻辑，把兵放回原位
+                CancelCurrentAction();
+
+                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, TEXT("Failed to store! Unit restored."));
+            }
             return; // 结束逻辑
         }
     }
@@ -508,10 +519,17 @@ void ARTSPlayerController::HandleNormalMode(AActor* HitActor)
         {
             // 确保兵活着且没死
             if (SelectedUnit->IsValidLowLevel() && !SelectedUnit->IsPendingKill())
-            {
-                Barracks->StoreUnit(SelectedUnit);
-                SelectedUnit = nullptr; // 存完了，清空选中
-                if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Unit Stored!"));
+            {                
+                // 检查返回值
+                if (Barracks->StoreUnit(SelectedUnit))
+                {
+                    SelectedUnit = nullptr; // 存完了，清空选中
+                    if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("Unit Stored!"));
+                }
+                else
+                {
+                    // 满了，不清除选中，让玩家知道没存进去
+                }
                 return;
             }
         }

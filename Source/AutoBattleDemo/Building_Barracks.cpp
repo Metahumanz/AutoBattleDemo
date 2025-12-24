@@ -1,4 +1,5 @@
 #include "Building_Barracks.h"
+#include "Building_Barracks.h"
 #include "RTSGameInstance.h"
 #include "BaseUnit.h"
 #include "GridManager.h"
@@ -56,15 +57,17 @@ void ABuilding_Barracks::EndPlay(const EEndPlayReason::Type EndPlayReason)
 }
 
 // 存兵逻辑
-void ABuilding_Barracks::StoreUnit(ABaseUnit* UnitToStore)
+bool ABuilding_Barracks::StoreUnit(ABaseUnit* UnitToStore)
 {
-    if (!UnitToStore) return;
+    if (!UnitToStore) return false;
 
     // 容量检查
     if (StoredUnits.Num() >= GetCurrentCapacity(BuildingLevel))
     {
         if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red, TEXT("Barracks Full!"));
-        return;
+        
+        // 返回 false，表示存储失败
+        return false;
     }
 
     // 保存数据
@@ -87,6 +90,9 @@ void ABuilding_Barracks::StoreUnit(ABaseUnit* UnitToStore)
     UnitToStore->Destroy();
 
     UE_LOG(LogTemp, Warning, TEXT("Unit Stored in Barracks! Total: %d"), StoredUnits.Num());
+
+    // 返回 true，表示成功
+    return true;
 }
 
 // 释放逻辑
