@@ -468,11 +468,26 @@ void ARTSGameMode::SaveAndStartBattle(FName LevelName)
 void ARTSGameMode::StartBattlePhase()
 {
     CurrentState = EGameState::Battle;
+    
+    int32 PlayerUnitsActivated = 0;
+    int32 EnemyUnitsActivated = 0;
+
     for (TActorIterator<ABaseUnit> It(GetWorld()); It; ++It)
     {
-        if (*It) (*It)->SetUnitActive(true);
+        ABaseUnit* Unit = *It;
+        if (Unit)
+        {
+            Unit->SetUnitActive(true);
+
+            if (Unit->TeamID == ETeam::Player)
+                PlayerUnitsActivated++;
+            else if (Unit->TeamID == ETeam::Enemy)
+                EnemyUnitsActivated++;
+        }
     }
-    UE_LOG(LogTemp, Log, TEXT("Battle Phase Started!"));
+
+    UE_LOG(LogTemp, Warning, TEXT("Battle Phase Started! Activated %d player units, %d enemy units."),
+        PlayerUnitsActivated, EnemyUnitsActivated);
 }
 
 void ARTSGameMode::RestartLevel()
@@ -487,9 +502,9 @@ void ARTSGameMode::ReturnToBase()
     if (!GI) return;
 
     // 改为使用成员变量而不是局部静态变量
-    static bool bIsReturning = false;
+    /*static bool bIsReturning = false;
     if (bIsReturning) return;
-    bIsReturning = true;
+    bIsReturning = true;*/
 
     UE_LOG(LogTemp, Warning, TEXT("Returning to Base..."));
 

@@ -54,6 +54,20 @@ void ABuilding_Resource::Tick(float DeltaTime)
 
 float ABuilding_Resource::CollectResource()
 {
+    // 添加阵营检查：只有玩家自己的建筑才能收集
+    if (TeamID != ETeam::Player)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("[Resource] Cannot collect from enemy building!"));
+
+        if (GEngine)
+        {
+            FString Msg = FString::Printf(TEXT("Cannot collect from enemy building!"));
+            GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, Msg);
+        }
+
+        return 0.0f;
+    }
+
     float CollectedAmount = CurrentStorage;
     CurrentStorage = 0.0f;
 

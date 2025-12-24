@@ -50,6 +50,10 @@ void ARTSPlayerController::BeginPlay()
             {
                 HUDToCreate = CreateWidget<UUserWidget>(this, BattleHUDClass);
             }
+            bShowMouseCursor = true; // 强制显示
+            FInputModeGameAndUI InputMode;
+            InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+            SetInputMode(InputMode);
         }
         else // 默认是基地地图 (PlayerBase)
         {
